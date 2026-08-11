@@ -1,0 +1,28 @@
+name: validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Claude plugin manifests
+        run: node scripts/validate-template.mjs
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate plugins with official validator
+        run: |
+          claude plugin validate ./plugins/conductor --strict
+          claude plugin validate ./plugins/engineering --strict

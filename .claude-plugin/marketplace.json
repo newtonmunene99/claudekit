@@ -1,0 +1,23 @@
+{
+  "name": "claudekit",
+  "owner": {
+    "name": "newtonmunene99"
+  },
+  "metadata": {
+    "description": "A curated kit of Claude Code plugins for developers who mean business.",
+    "version": "1.0.0",
+    "logo": "assets/logo.svg"
+  },
+  "plugins": [
+    {
+      "name": "conductor",
+      "source": "./plugins/conductor",
+      "description": "Context-Driven Development: setup, spec, plan, implement, review."
+    },
+    {
+      "name": "engineering",
+      "source": "./plugins/engineering",
+      "description": "Engineering skills: grilling, research, prototype, architecture review."
+    }
+  ]
+}
