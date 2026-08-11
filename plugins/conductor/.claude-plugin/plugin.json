@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "conductor",
+  "displayName": "Conductor",
+  "version": "1.0.0",
+  "description": "Context-driven development for Claude Code: setup, spec, plan, implement, review, programmes, and decision tracks.",
+  "author": {
+    "name": "newtonmunene99",
+    "email": "newtonmunene99@gmail.com"
+  },
+  "homepage": "https://github.com/newtonmunene99/claudekit",
+  "repository": "https://github.com/newtonmunene99/claudekit",
+  "license": "Apache-2.0",
+  "keywords": [
+    "conductor",
+    "claude",
+    "planning",
+    "spec-driven",
+    "context-driven"
+  ]
+}
