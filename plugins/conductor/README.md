@@ -40,6 +40,22 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> --create-ok
 ```
 
+## Evals
+
+Two `claude plugin eval` suites, kept separate so each runs, costs, and reports on its own:
+
+| Suite | Dir | Covers |
+| ----- | --- | ------ |
+| status | `evals/` (default) | `/conductor:conductor-status` outcomes: counts, eligible / blocked / parallel-ready, legacy format, not-set-up, negative |
+| graph | `evals-graph/` | implement picks the first *ready* todo (`blocked_by`), offers parallel dispatch, reports typo'd blockers, escalates at `attempts: 3`; validate-review flags wrong paths; implement not-set-up |
+
+```bash
+claude plugin eval ./plugins/conductor --allow-tools Write
+claude plugin eval ./plugins/conductor --eval-dir evals-graph --allow-tools Write Edit
+```
+
+Both suites grade outcomes (last message and files), not tool trajectories: a slash-expanded skill never shows up as a `Skill` tool call. No case grants Bash, so `conductor_state.py` is not exercised by the evals; the skills' documented manual fallbacks are. `results/` dirs are gitignored.
+
 ## Programme mode
 
 From `conductor/reviews/*.md` → validate → split tracks → synthesis → implement in order (continue via explicit cleanup choices when unblocked).
