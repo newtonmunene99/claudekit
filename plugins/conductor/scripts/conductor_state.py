@@ -256,9 +256,17 @@ def cmd_plan(args):
   sync_ids = {"conductor-sync-in-progress", "conductor-sync-complete"}
   ordered_ids = [t["id"] for t in todos]
   next_todo = ready[0] if ready else None
+  stuck = [w for w in waiting if w.get("unknown_blockers")]
+  blocked_reason = None
+  # The closing bookend is only "next" when every other todo is done. If work
+  # remains but none of it is ready (cycle, typo'd blocker), say so instead of
+  # letting the loop close the track early.
   if next_todo and next_todo["id"] == "conductor-sync-complete" and (
       counts["pending"] + counts["in_progress"]) > 1:
-    next_todo = next((r for r in ready if r["id"] not in sync_ids), next_todo)
+    next_todo = next((r for r in ready if r["id"] not in sync_ids), None)
+    if next_todo is None:
+      blocked_reason = "no todo is ready: " + ", ".join(
+          f"{w['id']} waits on {w['blocked_by']}" for w in waiting)
 
   # Parallel batch: ready todos whose declared file sets are pairwise disjoint.
   # Todos without `files` are never batched; they run alone in frontmatter order.
@@ -283,6 +291,8 @@ def cmd_plan(args):
       "next": next_todo,
       "ready": ready,
       "waiting": waiting,
+      "stuck": stuck,
+      "blocked_reason": blocked_reason,
       "parallel_batch": batch if len(batch) > 1 else [],
       "review_rounds": fm.get("review_rounds", 0),
       "phases": phases,
