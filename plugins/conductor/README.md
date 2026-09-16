@@ -18,6 +18,28 @@ Context-driven development for Claude Code: setup, spec, plan, implement, review
 | `/conductor:conductor-validate-review` | Validate review findings against repo |
 | `/conductor:conductor-prototype` | Decision-track spike on `spike/<slug>` branch |
 
+## Execution model
+
+Conductor runs a track as a small execution graph, not a linear chain:
+
+| Concern | Mechanism | Where |
+| ------- | --------- | ----- |
+| Plumbing without the model | `scripts/conductor_state.py` (`tracks`, `plan`, `verify-paths`) | Deterministic Plumbing Protocol |
+| Real dependencies only | todo `blocked_by` + `files`; implement runs any ready todo | Plan Authoring Guide |
+| Parallel work | disjoint-file todos and parallel-ready tracks fan out to subagents, user-confirmed | Parallel Dispatch Protocol |
+| Verification on the edge | fresh read-only verifier before each commit and on every plan draft | Independent Verification Protocol |
+| Local failures | retry / skip / repair / isolate / escalate / stop table | Failure Policy |
+| Bounded loops | `attempts` per todo, `review_rounds` per plan, hard caps | Convergence Budgets |
+| Cost | scripts → cheap model → strong model by task | Model Routing |
+
+All protocols live in `templates/conductor-protocol.md`.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/<file>.plan.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> --create-ok
+```
+
 ## Programme mode
 
 From `conductor/reviews/*.md` → validate → split tracks → synthesis → implement in order (continue via explicit cleanup choices when unblocked).

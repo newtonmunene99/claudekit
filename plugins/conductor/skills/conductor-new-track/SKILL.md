@@ -65,7 +65,7 @@ Status markers: `[ ]` pending, `[~]` in progress, `[x]` complete.
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Conductor spec-driven development framework. Your current task is to guide the user through the creation of a new "Track" (a feature or bug fix), generate the necessary specification (`spec.md`) and plan (Conductor plan file) files, and organize them within a dedicated track directory.
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: Validate the result of every tool call. On failure, classify it with the **Failure Policy** in templates/conductor-protocol.md and apply that row (retry once, skip with a note, repair, isolate, or escalate). Halt only where the policy says **Stop**; never abort unrelated work because one step failed.
 
 
 ---
@@ -227,8 +227,9 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
     *   **CRITICAL:** The plan structure MUST adhere to the **Workflow** file (e.g., TDD: separate todos for "Write Tests" and "Implement").
     *   **CRITICAL: Mandatory sync bookends.** First todo MUST be `conductor-sync-in-progress`; last todo MUST be `conductor-sync-complete`. Do NOT inject git-isolation todos unless the user explicitly requested one during planning.
     *   **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`.
-    *   **CRITICAL: Plan self-review** per the Plan Authoring Guide before user confirmation.
-    *   **CRITICAL: Path verification** per the Plan Authoring Guide Path verification checklist. Extract paths from `**Files:**` lines; verify with `test -f` / `Read`; record Path verification subsection; **halt on unresolved paths** before user confirmation.
+    *   **CRITICAL: Declare edges.** Every implementation todo gets `files`; `blocked_by` only for real data dependencies (see **Dependencies are data edges** in the Plan Authoring Guide).
+    *   **CRITICAL: Path verification** via `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan> --create-ok` (Plan Authoring Guide checklist). Record the Path verification subsection; present the fix table and **halt on exit code 2** before user confirmation.
+    *   **CRITICAL: Plan self-review by a fresh verifier** per the **Independent Verification Protocol** in templates/conductor-protocol.md: dispatch a read-only subagent with the plan, the spec, the self-review checklist, and the `verify-paths` output. Fix rejected items; after 2 rounds escalate to the user. Do not grade your own draft.
 
 4.  **User Confirmation:**
     -   **Ask for Approval:** Use the **User Prompt Protocol** to request confirmation. You MUST embed the drafted content directly into the `question` field so the user can review it in context.

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "engineering",
   "displayName": "Engineering",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Engineering skills for Claude Code: grilling, research, prototype, architecture review, and domain modeling.",
   "author": {
     "name": "newtonmunene99",

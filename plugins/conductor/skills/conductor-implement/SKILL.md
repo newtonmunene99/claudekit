@@ -72,7 +72,7 @@ When executing tasks, update the plan file frontmatter:
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Conductor spec-driven development framework. Your current task is to implement a track. You MUST follow this protocol precisely.
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: Validate the result of every tool call. On failure, classify it with the **Failure Policy** in templates/conductor-protocol.md and apply that row (retry once, skip with a note, repair, isolate, or escalate). Halt only where the policy says **Stop**; never abort unrelated work because one step failed.
 
 ---
 
@@ -95,9 +95,9 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 1.  **Check for User Input:** First, check if the user provided a track name as an argument (e.g., `/conductor-implement <track_description>`).
 
 2.  **Locate and Parse Tracks Registry:**
-    -   Resolve the **Tracks Registry**.
-    -   Read and parse this file. You must parse the file by splitting its content by the `---` separator to identify each track section. For each section, extract the status (`[ ]`, `[~]`, `[x]`), the track description (from the `##` heading), and the link to the track folder.
-    -   **CRITICAL:** If no track sections are found after parsing, announce: "The tracks file is empty or malformed. No tracks to implement." and halt.
+    -   Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks` from the project root (**Deterministic Plumbing Protocol**). Use its `tracks`, `eligible`, `blocked`, and `recommended` fields for every step below; do not re-parse the registry by hand unless the script is unavailable.
+    -   **Fallback:** Resolve the **Tracks Registry** and parse each `- [ ] **Track:` (or legacy `## [ ] Track:`) entry for status, description, and spec link.
+    -   **CRITICAL:** If `tracks` is empty, announce: "The tracks file is empty or malformed. No tracks to implement." and halt.
 
 3.  **Continue:** Immediately proceed to the next step to select a track.
 
@@ -152,13 +152,15 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 4.  **Execute Tasks and Update Track Plan:**
     a. **Announce:** One line: executing plan todos per **Workflow** (task index when known).
-    b. **Iterate Through Tasks:** Loop each todo in frontmatter order. Track whether **Git Isolation** has run for the **current track** (`git_isolation_done`).
+    b. **Iterate Through Tasks:** Before each task, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` and take `next` — the first todo whose `blocked_by` are all completed (frontmatter order is the tie-break, not the rule). If `parallel_batch` is non-empty, run the **Parallel Dispatch Protocol** in templates/conductor-protocol.md (offer parallel via **User Prompt Protocol**; never assume). If `waiting` lists `unknown_blockers`, announce the misspelled id and ask before continuing. Track whether **Git Isolation** has run for the **current track** (`git_isolation_done`).
     c. **For Each Task:**
         i. **`conductor-sync-in-progress`:** Update registry `[~]`, metadata `in_progress`, refresh `updated_at`. Mark todo `completed`. Follow **Git Write Policy** for any commit. Then run **Git Isolation** per step d if not yet done.
         ii. **`conductor-sync-complete`:** For decision tracks (`track_role: decision` in metadata), verify no `spike/*` branch exists (`git branch --list 'spike/*'`). If spike branch exists, halt — run `/conductor:conductor-prototype` delete step first. Update registry `[x]`, metadata `completed`, refresh `updated_at`. Mark todo `completed`. Follow **Git Write Policy** to commit Conductor files.
         iii. **All other todos:** Before the first implementation todo, if sync-in-progress is satisfied (registry `[~]`) and **Git Isolation** has not run, execute step d. Then follow the **Workflow** task lifecycle.
            - **CRITICAL:** Human-in-the-loop steps in the **Workflow** MUST use **User Prompt Protocol**.
-           - **On test failure:** Follow the **Systematic Debugging Protocol** in the **Workflow**.
+           - **Before commit:** Run the **Independent Verification Protocol** (fresh verifier subagent) per the **Workflow** step 6b.
+           - **On test failure:** Follow the **Systematic Debugging Protocol** in the **Workflow**; persist `attempts` on the todo per **Convergence Budgets**.
+           - **On any failure:** Apply the **Failure Policy** row; a failed todo never discards passing sibling work.
     d. **Git Isolation (once per track):** After sync-in-progress is satisfied and **before** any implementation todo or other Git write, follow the **Git Isolation Protocol** in templates/conductor-protocol.md. Set `git_isolation_done` after completing. Reset `git_isolation_done = false` when starting a new track via §5.0 continue options. Also run after step 3 legacy sync if the plan has no sync-in-progress todo.
 
 5.  **Legacy Finalize Fallback (only when the plan has no `conductor-sync-complete` todo, or it remains pending after the loop):**

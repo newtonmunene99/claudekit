@@ -19,7 +19,7 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
 
 ### Standard Task Workflow
 
-1. **Select Task:** Choose the next available todo from the Conductor plan file (`conductor/plans/*.plan.md`) in sequential order
+1. **Select Task:** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` and take `next` (the first todo whose `blocked_by` are all completed, in frontmatter order). When `parallel_batch` is non-empty, follow the **Parallel Dispatch Protocol** in templates/conductor-protocol.md before continuing. Fallback without `python3`: the next pending todo in frontmatter order whose `blocked_by` are all completed.
 
 2. **Mark In Progress:** Before beginning work, update the plan frontmatter: set the todo's `status` to `in_progress`
 
@@ -57,6 +57,8 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
    pytest --cov=app --cov-report=html
    ```
    Target: >80% coverage for new code. The specific tools and commands will vary by language and framework.
+
+6b. **Independent Verification:** Before committing, run the **Independent Verification Protocol** in templates/conductor-protocol.md: a fresh subagent receives the todo, its plan section, the relevant acceptance criteria, the diff, and the test output, and returns `Approve` or `Reject`. On `Reject`, fix the numbered issues (increment the todo's `attempts`), re-verify; after 2 rejections escalate via the **User Prompt Protocol**. Skip only for `conductor-sync-*` todos and documentation-only diffs under 20 lines.
 
 7. **Document Deviations:** If implementation differs from tech stack:
    - **STOP** implementation
@@ -97,7 +99,9 @@ Use this protocol when tests fail, behavior is unexpected, or a fix attempt did 
 
 **Phase 4 — Implementation:** Write a failing test that reproduces the bug (see **TDD Iron Law** above). Apply a single fix for the root cause. Verify tests pass.
 
-**Escalation:** After **3 failed fix attempts**, stop and use the **User Prompt Protocol** to question the approach or architecture with the user. Do not attempt a fourth fix without discussion.
+**Budget:** Before each fix attempt, increment the todo's `attempts` in the plan frontmatter so the count survives an interrupted session (see **Convergence Budgets** in templates/conductor-protocol.md). Dedupe against previous attempts: do not retry a hypothesis already recorded.
+
+**Escalation:** When `attempts` reaches **3**, stop and use the **User Prompt Protocol** to question the approach or architecture with the user. Do not attempt a fourth fix without discussion. Reset `attempts` to 0 when the todo completes.
 
 ### Phase Completion Verification and Checkpointing Protocol
 

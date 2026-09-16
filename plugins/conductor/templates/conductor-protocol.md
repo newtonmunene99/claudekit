@@ -56,9 +56,34 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 - `track_role` — `implementation` | `decision` | `docs`
 - `deliverable` — for decision tracks: OKF concept path within resolved bundle (e.g. `<pkg>/knowledge/decisions/<slug>.md` or `knowledge/decisions/<slug>.md`)
 
+## Deterministic Plumbing Protocol
+
+**PROTOCOL:** Parsing, counting, and path checks are plumbing, not judgment. Run the script; do not re-derive its output by reading files with the model.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/<file>.plan.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> [--create-ok]
+```
+
+| Subcommand | Replaces | Output |
+| ---------- | -------- | ------ |
+| `tracks` | Manual registry parse + **Eligible Tracks Protocol** steps 1–6 | `eligible` (sorted, `parallel_ready` flag), `blocked` (with `missing`), `in_progress`, `recommended`, `all_complete` |
+| `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`), `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
+| `verify-paths <file>` | Path verification checklist `test -f` loop | `paths[]` with `verified` / `missing` / `create` / `line-out-of-range` and `suggestions`; exit 2 when anything is missing |
+
+Rules:
+
+1. Run from the project root. Stdout is one JSON object; read it fully.
+2. Exit 1 = unreadable input (announce and use **Failure Policy**). Exit 2 from `verify-paths` = missing paths (present the fix table; do not proceed until resolved).
+3. Fallback (local dev): `./plugins/conductor/scripts/conductor_state.py` from the claudekit repo root.
+4. If `python3` is unavailable, announce it once and fall back to the manual steps in each protocol below.
+
 ## Eligible Tracks Protocol
 
 **PROTOCOL:** Used by `/conductor:conductor-implement` and `/conductor:conductor-status`.
+
+**Preferred:** `conductor_state.py tracks` (see **Deterministic Plumbing Protocol**) computes steps 1–6 below. The manual steps are the fallback and the definition the script implements.
 
 1. Parse **Tracks Registry** — for each track entry extract status (`[ ]`, `[~]`, `[x]`), description, and `<track_id>` from the spec link (`../specs/<track_id>/spec.md`).
 2. Read `conductor/specs/<track_id>/metadata.json` for each incomplete track (`[ ]` or `[~]`). Default `depends_on: []`, `order: null`.
@@ -71,7 +96,7 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 
 **Continue after complete:** Never auto-advance without user confirmation. In §5.0 cleanup, add **combined options** when eligible next tracks exist (e.g. `Archive and continue to <track_id>`, `Skip and continue to <track_id>`). On continue, reset per-track git isolation and loop to §3.0.
 
-**True parallelism:** Multiple parallel-ready tracks still run **one at a time** per agent session; use separate worktrees/chats for concurrent work.
+**True parallelism:** The implement loop drives **one track at a time**. Parallel-ready tracks may run concurrently only through the **Parallel Dispatch Protocol** (subagents in separate worktrees) or separate chats; never interleave two tracks' todos in one loop.
 
 ## Knowledge Bundle Resolution
 
@@ -104,6 +129,8 @@ todos:
     status: pending
     phase: C4
     blocked_by: [prerequisite-task-id]
+    files: [pkg/x/x.go, pkg/x/x_test.go]
+    attempts: 0
   - id: conductor-sync-complete
     content: "Conductor — Mark track complete (tracks.md [x], metadata.json completed)"
     status: pending
@@ -112,7 +139,16 @@ todos:
 
 Frontmatter `todos` are the source of truth for implement, status, and revert. Append commit SHAs to `content` on completion.
 
-Optional plan-level fields: `depends_on`, `blocks`, `programme_id`. Optional todo-level fields: `phase`, `blocked_by`. Claude Code may ignore unknown fields — they remain for agent protocol and programme review.
+Optional plan-level fields: `depends_on`, `blocks`, `programme_id`, `review_rounds` (integer, see **Convergence Budgets**). Optional todo-level fields:
+
+| Field | Meaning | Used by |
+| ----- | ------- | ------- |
+| `phase` | Phase label (`C4`) | status, phase checkpoints |
+| `blocked_by` | Todo ids that must be `completed` first. **Only real data dependencies** — a todo that does not read another todo's output has no edge. | implement loop (`ready` / `waiting`) |
+| `files` | Exact repo paths this todo creates or modifies. Todos with pairwise-disjoint `files` may run in parallel. | **Parallel Dispatch Protocol** |
+| `attempts` | Failed fix attempts so far. Persisted so an interrupted session keeps its budget. | **Convergence Budgets** |
+
+Claude Code may ignore unknown fields — they remain for agent protocol and programme review.
 
 **Mandatory sync bookends** — every generated plan MUST include:
 
@@ -172,6 +208,89 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
    - **Other** — User describes a custom team workflow
 4. Follow **Git Write Policy** for all git commands.
 5. Do not add git-isolation todos to plans unless the user explicitly asked during new-track planning.
+
+## Failure Policy
+
+**PROTOCOL:** A failure is a **local event**. Contain it at the smallest boundary, then apply exactly one policy. Never let one failed step abort unrelated work, and never retry silently more than once.
+
+| Failure | Policy | Action |
+| ------- | ------ | ------ |
+| Transient tool error (timeout, lock, flaky network) | **Retry** | Retry once. Second failure → **Escalate**. |
+| Optional input missing (style guide, `metadata.json`, index link) | **Skip** | Use the documented default, note the gap in the next message, continue. |
+| Required input missing (spec, plan, workflow, registry) | **Stop** | Announce the missing file and the command that creates it. Halt this operation only. |
+| Test or verification failure | **Repair** | Run the **Systematic Debugging Protocol** in the **Workflow**; count in `attempts`. |
+| Independent verifier returns **Reject** | **Repair** | Fix the named issues in the same todo; re-verify. Counts toward `attempts`. |
+| Budget exhausted (`attempts` ≥ 3, `review_rounds` ≥ 2, batch member failed twice) | **Escalate** | **User Prompt Protocol**: state what failed, what was tried, and offer Continue / Change approach / Stop. |
+| Git write declined, permission denied, or `git` unavailable | **Skip** | Record what was skipped, continue the workflow without the write. |
+| One member of a parallel batch fails | **Isolate** | Keep sibling results. Report the failed todo with its error; re-run it alone under **Repair**. |
+| Any write would touch files outside the todo's `files` or the review scope | **Stop** | Do not write. Ask the user. |
+
+Every skill's "validate every tool call" rule means: check the result, classify the failure with this table, and act on that row. It does **not** mean halt on the first error.
+
+## Convergence Budgets
+
+Every loop in Conductor has a measurable exit and a cap. Budgets are stored in the plan so they survive an interrupted session.
+
+| Loop | Converges when | Cap | Where recorded |
+| ---- | -------------- | --- | -------------- |
+| TDD red → green | Test passes with pristine output | — | commit SHA on todo |
+| Debug fix attempts | Root-cause test passes | **3** attempts, then **Escalate** | todo `attempts` |
+| Verifier reject → repair | Verifier returns **Approve** | **2** rounds, then **Escalate** | todo `attempts` |
+| Review → Apply Fixes → re-review | Verdict is Approve / Approve with nits | **2** rounds, then **Escalate** | plan `review_rounds` |
+| Phase manual verification | User confirms | user-driven | git note on checkpoint |
+
+Increment the counter **before** the retry, in the plan frontmatter, following the **Git Write Policy** only when committing. Reset `attempts` to 0 when the todo completes.
+
+## Independent Verification Protocol
+
+**PROTOCOL:** Generation and verification are separate roles. The context that wrote something does not decide it is correct.
+
+Dispatch a **fresh subagent** (Claude Code **Agent** tool, or a fresh chat when unavailable) with a read-only brief. It returns one verdict line and a findings list; it never edits files.
+
+| Gate | Verifier receives | Verdict |
+| ---- | ----------------- | ------- |
+| **Per-todo, before commit** (Workflow task lifecycle) | Todo `content`, its plan-body section, the spec's relevant acceptance criteria, `git diff` of the working tree, test command + output | `Approve` / `Reject: <numbered issues>` |
+| **Plan self-review** (`/conductor:conductor-new-track` §2.4) | Drafted plan, spec, `plan-authoring-guide.md` self-review checklist, `verify-paths` output | `Approve` / `Reject: <checklist items failed>` |
+| **Review validation** (`/conductor:conductor-validate-review`) | Review document, cited code | Already independent — keep as is |
+
+Brief template (fill every bracket):
+
+```text
+You are a read-only verifier. Do not edit files. Do not run git write commands.
+Scope: [todo id + content]
+Contract: [Files / Interfaces / acceptance criteria]
+Evidence: [diff, test output]
+Return exactly: "Verdict: Approve" or "Verdict: Reject" followed by numbered, file:line-anchored issues.
+Flag only what you can point to in the evidence. Do not flag pre-existing code.
+```
+
+On **Reject**, apply **Failure Policy → Repair**. Skip the per-todo verifier only for `conductor-sync-*` bookends and todos whose diff is documentation-only under 20 lines.
+
+## Parallel Dispatch Protocol
+
+**PROTOCOL:** Fan out only where independence is declared, and join deliberately.
+
+Trigger: `conductor_state.py plan` returns a non-empty `parallel_batch` (≥2 ready todos with pairwise-disjoint `files`).
+
+1. **Offer, never assume.** **User Prompt Protocol**, header `## Parallel`: "Todos `<a>`, `<b>` are independent (disjoint files). Run them in parallel?" Options: **Parallel** (Recommended when ≥3 in batch) / **Sequential**.
+2. **Dispatch** one subagent per todo (Agent tool, `isolation: "worktree"` when available; otherwise shared working tree, since file sets are disjoint). Each brief contains: the todo, its plan-body section, the **Workflow** TDD rules, its `files` list as a **hard write boundary**, and the test command. Subagents **do not commit** and **do not edit the plan**.
+3. **Join** when all return. For each result: run the **Independent Verification Protocol** (or accept the subagent's own verifier result if it ran one), then run the full test suite once.
+4. **Commit per todo** in frontmatter order under the **Git Write Policy** (one approval may cover the batch). Record each SHA on its todo; set `completed`.
+5. **Failure:** apply **Failure Policy → Isolate**. Never discard passing siblings because one member failed.
+6. **Parallel-ready tracks** (`tracks` output) use the same protocol at track granularity, one worktree per track, and always require step 1.
+
+## Model Routing
+
+**PROTOCOL:** Spend the strong model on judgment; route plumbing and narrow checks elsewhere.
+
+| Work | Route |
+| ---- | ----- |
+| Registry / plan parsing, eligibility, todo counts, path existence | `conductor_state.py` (no model) |
+| Status summary wording, path-fix tables, doc-only verifier passes | Cheapest available model (`model: haiku` on the Agent tool) |
+| Brainstorm, spec, plan synthesis, code review, debugging, decision tracks | Default (strong) model |
+| Independent verifier for code changes | Default model, fresh context |
+
+Never downgrade the model for a gate that can reject work.
 
 ## Agent Output Style
 
