@@ -23,7 +23,10 @@ SPECS_DIR = os.path.join("conductor", "specs")
 TRACKS_FILE = os.path.join(CONTEXT_DIR, "tracks.md")
 
 # Registry entries: "- [ ] **Track: desc**" (standard) or "## [ ] Track: desc" (legacy).
-TRACK_LINE = re.compile(r"^(?:- |## )\[(?P<status>[ ~x])\]\s*\**Track:\s*(?P<desc>.+?)\**\s*(?:—.*)?$")
+# A programme entry may carry a trailing sequencing hint: "** — _order 2; after A_".
+TRACK_LINE = re.compile(r"^(?:- |## )\[(?P<status>[ ~x])\]\s*(?P<rest>.+)$")
+BOLD_DESC = re.compile(r"^\*\*Track:\s*(?P<desc>.+?)\*\*")
+PLAIN_DESC = re.compile(r"^Track:\s*(?P<desc>.+?)\s*(?:—\s*_.*_\s*)?$")
 SPEC_LINK = re.compile(r"\(\.\./specs/(?P<id>[^/)]+)/(?:spec\.md|index\.md)\)")
 PLAN_LINK = re.compile(r"\((?P<path>\.\./plans/[^)]+\.plan\.md)\)")
 TERMINAL = {"completed"}
@@ -131,8 +134,11 @@ def parse_registry(text):
   for line in text.replace("\r\n", "\n").split("\n"):
     m = TRACK_LINE.match(line.strip())
     if m:
+      d = BOLD_DESC.match(m.group("rest")) or PLAIN_DESC.match(m.group("rest"))
+      if not d:
+        continue
       current = {
-          "description": m.group("desc").strip().rstrip("*").strip(),
+          "description": d.group("desc").strip(),
           "status": {" ": "pending", "~": "in_progress", "x": "completed"}[m.group("status")],
           "track_id": None,
           "plan": None,
