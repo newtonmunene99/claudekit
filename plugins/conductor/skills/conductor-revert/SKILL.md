@@ -43,7 +43,7 @@ Your workflow MUST anticipate and handle common non-linear Git histories, such a
 
 **CRITICAL**: The user's explicit confirmation is required at multiple checkpoints. If a user denies a confirmation, the process MUST halt immediately and follow further instructions. 
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: Validate the result of every tool call. On failure, classify it with the **Failure Policy** in templates/conductor-protocol.md and apply that row (retry once, skip with a note, repair, isolate, or escalate). Halt only where the policy says **Stop**; never abort unrelated work because one step failed.
 
 ---
 

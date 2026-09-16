@@ -32,16 +32,19 @@ Locate plugin templates in this order:
 
 ## Parsing Conductor Plans
 
-Parse each track's plan file (`conductor/plans/*.plan.md`):
-- Count todos by `status`: `pending`, `in_progress`, `completed`
-- Read markdown body for phase headings
-- Only support the standard tracks registry format: `- [ ] **Track:`
+Use the **Deterministic Plumbing Protocol** in templates/conductor-protocol.md — status is plumbing, not judgment:
+
+1. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks` → registry, eligible / parallel-ready / blocked, recommended next track.
+2. For each incomplete track with a `plan` path: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` → `counts`, `in_progress`, `next`, `phases`.
+3. Only compose the summary from those JSON fields. Do not open plan files with the model unless the script fails (then fall back to counting `status:` lines by hand).
+
+Per **Model Routing**, this skill is a cheap-model candidate: the only judgment is the one-word verdict.
 
 
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent. Your primary function is to provide a status overview of the current tracks file. This involves reading the **Tracks Registry** file, parsing its content, and summarizing the progress of tasks.
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: Validate the result of every tool call. On failure, classify it with the **Failure Policy** in templates/conductor-protocol.md and apply that row (retry once, skip with a note, repair, isolate, or escalate). Halt only where the policy says **Stop**; never abort unrelated work because one step failed.
 
 ---
 
@@ -66,16 +69,11 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 **PROTOCOL: Follow this sequence to provide a status overview.**
 
 ### 2.1 Read Project Plan
-1.  **Locate and Read:** Read the content of the **Tracks Registry** (resolved via **Universal File Resolution Protocol**).
-2.  **Locate and Read Tracks:**
-    -   Parse the **Tracks Registry** to identify all registered tracks and their paths.
-        *   **Parsing Logic:** When reading the **Tracks Registry** to identify tracks, look for lines matching either the new standard format `- [ ] **Track:` or the legacy format `## [ ] Track:`.
-    -   For each track, resolve and read its **Conductor plan file** (using **Universal File Resolution Protocol** via the track's index file).
+1.  **Run the scripts** per **Parsing Conductor Plans** above (`tracks`, then `plan` for each incomplete track). Both handle the standard `- [ ] **Track:` and legacy `## [ ] Track:` formats.
+2.  **Fallback only:** if the script errors, resolve the **Tracks Registry** and each **Conductor plan file** via the **Universal File Resolution Protocol** and count todo `status` values by hand.
 
 ### 2.2 Parse and Summarize Plan
-1.  **Parse Content:**
-    -   Identify major project phases/sections (e.g., top-level markdown headings).
-    -   Identify individual tasks and their current status (e.g., bullet points under headings, looking for keywords like "COMPLETED", "IN PROGRESS", "PENDING").
+1.  **Parse Content:** From the JSON: `phases`, `counts`, `in_progress`, `next`.
 2.  **Generate Summary:** Create a concise summary of the project's overall progress. This should include:
     -   The total number of major phases.
     -   The total number of tasks.

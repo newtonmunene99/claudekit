@@ -45,7 +45,7 @@ Your goal is to review the implementation of a specific track or a set of change
 - **Git read-only during review:** Use only read-only git commands (`git status`, `git log`, `git diff`, `git show`, `git blame`, `git branch --list`, `git branch --show-current`). All write operations follow the **Git Write Policy** in templates/conductor-protocol.md.
 - **Validate before flagging:** Confirm each issue is real. Drop anything you cannot validate. If uncertain, do not flag it.
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: Validate the result of every tool call. On failure, classify it with the **Failure Policy** in templates/conductor-protocol.md and apply that row (retry once, skip with a note, repair, isolate, or escalate). Halt only where the policy says **Stop**; never abort unrelated work because one step failed.
 
 ---
 
@@ -333,7 +333,7 @@ Document errors, panics, and edge cases when the signature alone is insufficient
 
     **Approve:** Proceed directly to §3.2.
 
-4.  **After Apply Fixes (any branch that offered it):** Apply code fixes from findings. Then use the **User Prompt Protocol**:
+4.  **After Apply Fixes (any branch that offered it):** First check the budget: read `review_rounds` from the plan frontmatter (`conductor_state.py plan <plan>` reports it; default 0). If it is already **2**, do not apply fixes — **Escalate** per the **Failure Policy** (state what the previous rounds fixed and offer Manual Fix / Change approach / Stop). Otherwise increment `review_rounds` in the plan, apply code fixes from findings, re-run §2.3 on the fixed diff, and then use the **User Prompt Protocol**:
     - **header:** "Documentation"
     - **question:** "Should I also update documentation and comments for the changed symbols (comments/API docs/README only — no behavior changes)?"
     - **type:** "yesno"

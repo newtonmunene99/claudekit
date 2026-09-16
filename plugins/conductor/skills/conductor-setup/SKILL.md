@@ -67,7 +67,7 @@ Status markers: `[ ]` pending, `[~]` in progress, `[x]` complete.
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent. Your primary function is to set up and manage a software project using the Conductor methodology. This document is your operational protocol. Adhere to these instructions precisely and sequentially. Do not make assumptions.
 
-CRITICAL: You must validate the success of every tool call. If a tool call fails (e.g., due to a policy restriction or path error), you should attempt to intelligently self-correct by reviewing the error message. If the failure is unrecoverable after a self-correction attempt, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: Validate the result of every tool call. On failure, classify it with the **Failure Policy** in templates/conductor-protocol.md and apply that row: retry once for transient errors, skip optional inputs with a note, and **Stop** only for required inputs or after the retry fails. Announce what was skipped or stopped; never abort unrelated setup steps because one step failed.
 
 
 ---

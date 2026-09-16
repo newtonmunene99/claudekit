@@ -56,11 +56,10 @@ Load `templates/review-document-header.md` for expected structure.
 
 ### 2.3 Verify paths
 
-For each cited path:
-
-1. `test -f` / `test -d` or glob variants
-2. For line refs, `Read` file and confirm symbol/context
-3. Record: **Verified** | **Wrong path** (suggest correction) | **Not found**
+1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <review path>` (**Deterministic Plumbing Protocol**). It checks every cited path and `file:line` reference and suggests corrections for missing files.
+2. For paths marked `verified` with a line ref, `Read` the cited lines to confirm the symbol/context still matches the claim.
+3. Record: **Verified** | **Wrong path** (use the script's `suggestions`) | **Not found**
+4. Fallback without `python3`: `test -f` / `test -d`, glob variants, and `Read` for line refs.
 
 ### 2.4 Verify severity claims
 

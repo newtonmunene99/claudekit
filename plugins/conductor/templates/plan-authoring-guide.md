@@ -63,7 +63,20 @@ Claude Code may ignore unknown fields — they remain for agent protocol and pro
   status: pending
   phase: C4
   blocked_by: [metric-client-seam]
+  files: [pkg/parity/parity.go, pkg/parity/parity_test.go]
+  attempts: 0
 ```
+
+## Dependencies are data edges, not order
+
+Frontmatter order is the **default** execution order, but `/conductor:conductor-implement` runs any todo whose `blocked_by` are all completed. Declare edges deliberately:
+
+- **Add `blocked_by`** only when the todo **reads the output** of another todo (a type, a seam, a fixture, a file the other creates). "It comes after" is not a dependency.
+- **Omit `blocked_by`** for independent work so it can run in parallel. Two "write failing tests" todos in different packages usually have no edge.
+- **Always add `files`**: the exact paths the todo creates or modifies. The implement loop only parallelises todos whose `files` are pairwise disjoint; a todo without `files` runs alone.
+- Sync bookends are implicit edges: nothing runs before `conductor-sync-in-progress`, and `conductor-sync-complete` waits for everything.
+
+Sanity check: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` prints `ready`, `waiting`, and `parallel_batch`. If `waiting` lists an `unknown_blockers` entry, the id is misspelled.
 
 ## Task right-sizing
 
@@ -169,11 +182,14 @@ These are plan failures — never write them:
 
 **Run after plan draft, before user confirmation.** Block plan approval on unresolved paths.
 
-1. **Extract paths** from every `**Files:**` line and inline backticks that look like repo paths. Exclude `conductor/` Conductor artifacts.
-2. **Verify each path** using read-only shell:
-   - `test -f <path>` or `test -d <path>`
-   - Glob for `*_test.go` / naming variants when exact path missing
-   - For line references (`file.go:613`), `Read` the file and confirm symbol or line exists
+1. **Run the script** (see **Deterministic Plumbing Protocol** in templates/conductor-protocol.md):
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths conductor/plans/<file>.plan.md --create-ok
+   ```
+
+   It extracts every `**Files:**` path and inline backtick repo path, skips `conductor/` artifacts, treats paths labelled `Create` as expected-missing, checks `file:line` references are in range, and suggests replacements for missing files. Exit code 2 means something is unresolved.
+2. **Manual fallback** (no `python3`): `test -f <path>` / `test -d <path>`, glob for naming variants, and `Read` files for line references.
 3. **Record verified paths** in a plan body **Path verification** subsection:
 
    ```markdown
@@ -191,7 +207,7 @@ These are plan failures — never write them:
 
 ## Plan self-review
 
-After drafting the complete plan, run this checklist and fix inline:
+After drafting the complete plan, hand this checklist to a **fresh verifier** per the **Independent Verification Protocol** in templates/conductor-protocol.md (the context that drafted the plan does not grade it). Fix every rejected item inline, then re-verify; after **2** rounds escalate to the user.
 
 1. **Spec coverage:** Each spec requirement maps to at least one todo.
 2. **Placeholder scan:** No banned patterns above.
@@ -202,6 +218,7 @@ After drafting the complete plan, run this checklist and fix inline:
 7. **Prerequisites:** Vacuous-test risks have PREREQUISITE todos with evidence.
 8. **Test constraints:** No unbounded sleeps or undeclared network dependencies.
 9. **Namespace:** Single owner for shared ID registries when programme spans tracks.
+10. **Edges:** Every `blocked_by` names a real data dependency; every implementation todo declares `files`; `conductor_state.py plan` reports no `unknown_blockers`.
 
 ## Direct plan execution
 

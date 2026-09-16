@@ -96,6 +96,7 @@ Claudekit is a manual port of [gemini-cli-extensions/conductor](https://github.c
 - User Prompt Protocol (Claude's AskUserQuestion tool) instead of Gemini's `ask_question`
 - Restructured artifact layout under `conductor/` (`context/`, `specs/`, `plans/`, `reviews/`, `archive/`)
 - Local additions upstream doesn't have: programme mode, decision tracks + `/conductor:conductor-prototype`, review documents as artifacts, OKF knowledge bundles
+- Graph-style execution: deterministic plumbing script, todo-level `blocked_by`/`files` edges with parallel dispatch, independent verifiers, a failure policy table, and convergence budgets (see the conductor plugin README)
 
 ## Repository layout
 
@@ -106,6 +107,7 @@ claudekit/
 ├── assets/
 ├── plugins/
 │   ├── conductor/
+│   │   └── scripts/conductor_state.py   # deterministic registry / plan / path checks
 │   └── engineering/
 └── scripts/
     ├── validate-template.mjs
