@@ -257,6 +257,13 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 2.  **Compute next tracks:** Apply **Eligible Tracks Protocol** in templates/conductor-protocol.md **before** prompting. Record eligible `<track_id>` + description list; note **parallel-ready** (∥) when multiple share lowest `order`.
 
+2b. **Finish the branch** (only when the track ran on a feature branch or worktree, per `metadata.json` `git`, and **Commits** is `agent`):
+    1. Run the **Artifact Reference Policy** check over `git diff <base>..HEAD` and fix any hit first.
+    2. Use the **User Prompt Protocol**, header "Branch": **Merge into `<base>`** (fast-forward when possible; Recommended when the repo has no PR workflow), **Open a pull request** (when a remote and `gh` or the host CLI exist), **Leave the branch**.
+    3. After a merge or PR, offer the follow-ups in **one** prompt (`multiSelect: true`): **Push `<base>`**, **Push git notes** (`git push origin refs/notes/commits`, so the per-task audit trail reaches the remote), **Delete the track branch**, and **Tag a release** only when the repo already tags releases (suggest the next tag from `git tag --sort=-v:refname`).
+    4. None of these are covered by standing approval: each listed command is shown and approved in that prompt (**Git Write Policy**).
+    With **Commits** `user`, skip the prompts and list the commands for the user to run.
+
 3.  **Ask for User Choice:** Build options dynamically, then use the **User Prompt Protocol** (do not repeat in chat):
 
     **Always include:**
@@ -286,7 +293,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 4.  **Handle User Response:**
 
-    *   **Review:** Announce: "Run `/conductor:conductor-review` to verify changes. You can archive or continue afterward." Halt.
+    *   **Review:** Run the `/conductor:conductor-review` protocol now, in this turn, with this track as the confirmed scope (skip its scope prompts). When it finishes, return to this cleanup prompt without the Review option.
 
     *   **Archive** (standalone): Execute archive steps (4a), commit, announce success. Halt.
 
