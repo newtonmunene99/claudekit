@@ -7,8 +7,12 @@ Every subcommand prints ONE JSON object on stdout. Run from the project root.
     conductor_state.py tracks                 eligible / blocked / parallel-ready tracks
     conductor_state.py plan <plan.md>         todo counts, in-progress, ready + parallel batches
     conductor_state.py verify-paths <file.md> repo paths cited in a plan or review exist
+    conductor_state.py archive <track_id> [--force]
+                                              move spec + plan to conductor/archive/<id>/
+                                              and leave an "(archived)" ledger line
 
-Exit codes: 0 ok, 1 usage or unreadable input, 2 verify-paths found missing paths.
+Exit codes: 0 ok, 1 usage or unreadable input, 2 verify-paths found missing paths,
+3 archive needs confirmation (track incomplete or has deferred checks; rerun with --force).
 Only the standard library is used so the script runs anywhere python3 does.
 """
 
@@ -16,6 +20,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import sys
 
 CONTEXT_DIR = os.path.join("conductor", "context")
@@ -206,9 +211,13 @@ def cmd_tracks(_args):
     e["parallel_ready"] = lowest is not None and e["order"] == lowest and sum(
         1 for x in eligible if x["order"] == lowest) > 1
   in_progress = [t["track_id"] for t in tracks if t["status"] == "in_progress"]
+  # Completed tracks whose spec folder has not been moved to archive/ yet.
+  archivable = [t["track_id"] for t in tracks if t["status"] == "completed" and t["track_id"]
+                and os.path.isdir(os.path.join(SPECS_DIR, t["track_id"]))]
   return {
       "tracks": tracks,
       "in_progress": in_progress,
+      "archivable": archivable,
       "eligible": eligible,
       "blocked": blocked,
       "recommended": eligible[0]["track_id"] if eligible else None,
@@ -403,14 +412,112 @@ def cmd_verify_paths(args):
       2 if missing else 0)
 
 
+# --- archive -----------------------------------------------------------------
+
+INDEX_PLAN_LINK = re.compile(r"\((?P<path>\.\./\.\./plans/[^)]+\.plan\.md)\)")
+
+
+def _plan_from_index(spec_dir):
+  index = os.path.join(spec_dir, "index.md")
+  if not os.path.isfile(index):
+    return None
+  m = INDEX_PLAN_LINK.search(read_text(index))
+  return os.path.normpath(os.path.join(spec_dir, m.group("path"))) if m else None
+
+
+def _archive_registry_entry(text, track_id):
+  """Turns the track's registry entry into a one-line ledger that still links its spec.
+
+  The header keeps the user's wording and any order hint; it gains [x] and
+  "(archived)". The plan link is dropped and the spec link points into archive/.
+  """
+  lines = text.replace("\r\n", "\n").split("\n")
+  starts = [i for i, line in enumerate(lines) if TRACK_LINE.match(line.strip())]
+  for n, start in enumerate(starts):
+    end = starts[n + 1] if n + 1 < len(starts) else len(lines)
+    for j in range(start + 1, end):
+      if lines[j].strip() == "---" or lines[j].startswith("#"):
+        end = j
+        break
+    block = lines[start:end]
+    if not any(f"../specs/{track_id}/" in line for line in block[1:]):
+      continue
+    header = re.sub(r"\[[ ~x]\]", "[x]", block[0], count=1)
+    if "(archived)" not in header:
+      header = header.rstrip() + " (archived)"
+    body = [line.replace(f"../specs/{track_id}/", f"../archive/{track_id}/")
+            for line in block[1:] if not PLAN_LINK.search(line)]
+    return "\n".join(lines[:start] + [header] + body + lines[end:]), True
+  return text, False
+
+
+def cmd_archive(args):
+  ids = [a for a in args if not a.startswith("--")]
+  force = "--force" in args
+  if len(ids) != 1:
+    return {"error": "usage: conductor_state.py archive <track_id> [--force]"}, 1
+  track_id = ids[0]
+  if not os.path.isfile(TRACKS_FILE):
+    return {"error": f"{TRACKS_FILE} not found; run /conductor:conductor-setup"}, 1
+  spec_dir = os.path.join(SPECS_DIR, track_id)
+  dest = os.path.join(ARCHIVE_DIR, track_id)
+  if os.path.isdir(dest):
+    return {"error": f"already archived: {dest}"}, 1
+  if not os.path.isdir(spec_dir):
+    return {"error": f"spec folder not found: {spec_dir}"}, 1
+
+  text = read_text(TRACKS_FILE)
+  track = next((t for t in parse_registry(text) if t["track_id"] == track_id), None)
+  plan = (track or {}).get("plan") or _plan_from_index(spec_dir)
+  deferred = []
+  if plan and os.path.isfile(plan):
+    fm_text, _ = split_frontmatter(read_text(plan))
+    todos = (parse_frontmatter(fm_text).get("todos") or []) if fm_text else []
+    deferred = [t["id"] for t in todos if isinstance(t, dict) and t.get("status") == "deferred"]
+
+  reasons = []
+  if track is None or track["status"] != "completed":
+    reasons.append("not_completed")
+  if deferred:
+    reasons.append("deferred_checks")
+  if reasons and not force:
+    return {"track_id": track_id, "needs_confirmation": reasons, "deferred": deferred}, 3
+
+  os.makedirs(ARCHIVE_DIR, exist_ok=True)
+  shutil.move(spec_dir, dest)
+  moved = [{"from": spec_dir, "to": dest}]
+  if plan and os.path.isfile(plan):
+    base = os.path.basename(plan)
+    shutil.move(plan, os.path.join(dest, base))
+    moved.append({"from": plan, "to": os.path.join(dest, base)})
+    index = os.path.join(dest, "index.md")
+    if os.path.isfile(index):
+      updated = read_text(index).replace(f"../../plans/{base}", f"./{base}")
+      with open(index, "w", encoding="utf-8") as fh:
+        fh.write(updated)
+
+  new_text, rewritten = _archive_registry_entry(text, track_id)
+  if rewritten:
+    with open(TRACKS_FILE, "w", encoding="utf-8") as fh:
+      fh.write(new_text)
+  return {
+      "track_id": track_id,
+      "moved": moved,
+      "registry": "ledger" if rewritten else "entry-not-found",
+      "forced": bool(reasons),
+      "deferred": deferred,
+  }, 0
+
+
 # --- main --------------------------------------------------------------------
 
-COMMANDS = {"tracks": cmd_tracks, "plan": cmd_plan, "verify-paths": cmd_verify_paths}
+COMMANDS = {"tracks": cmd_tracks, "plan": cmd_plan, "verify-paths": cmd_verify_paths,
+            "archive": cmd_archive}
 
 
 def main(argv):
   if len(argv) < 2 or argv[1] not in COMMANDS:
-    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths> [args]"}))
+    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|archive> [args]"}))
     return 1
   result, code = COMMANDS[argv[1]](argv[2:])
   print(json.dumps(result, indent=2))

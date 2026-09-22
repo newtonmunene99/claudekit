@@ -65,13 +65,15 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/<file>.plan.md
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> [--create-ok]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [--force]
 ```
 
 | Subcommand | Replaces | Output |
 | ---------- | -------- | ------ |
-| `tracks` | Manual registry parse + **Eligible Tracks Protocol** steps 1–6 | `eligible` (sorted, `parallel_ready` flag), `blocked` (with `missing`), `in_progress`, `recommended`, `all_complete` |
-| `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`), `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
+| `tracks` | Manual registry parse + **Eligible Tracks Protocol** steps 1–6 | `eligible` (sorted, `parallel_ready` flag), `blocked` (with `missing`), `in_progress`, `archivable`, `recommended`, `all_complete` |
+| `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`), `deferred`, `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
 | `verify-paths <file>` | Path verification checklist `test -f` loop | `paths[]` with `verified` / `missing` / `create` / `line-out-of-range` and `suggestions`; exit 2 when anything is missing |
+| `archive <track_id>` | Hand-moving the spec folder and editing the registry | Moves spec **and** plan into `conductor/archive/<id>/`, rewrites the entry as an `(archived)` ledger line; exit 3 with `needs_confirmation` (`not_completed`, `deferred_checks`) unless `--force` |
 
 Rules:
 
@@ -86,9 +88,9 @@ Rules:
 
 **Preferred:** `conductor_state.py tracks` (see **Deterministic Plumbing Protocol**) computes steps 1–6 below. The manual steps are the fallback and the definition the script implements.
 
-1. Parse **Tracks Registry** — for each track entry extract status (`[ ]`, `[~]`, `[x]`), description, and `<track_id>` from the spec link (`../specs/<track_id>/spec.md`).
+1. Parse **Tracks Registry** — for each track entry extract status (`[ ]`, `[~]`, `[x]`), description, and `<track_id>` from the spec link (`../specs/<track_id>/spec.md`, or `../archive/<track_id>/spec.md` for an archived ledger line).
 2. Read `conductor/specs/<track_id>/metadata.json` for each incomplete track (`[ ]` or `[~]`). Default `depends_on: []`, `order: null`.
-3. **Eligible:** incomplete track where every id in `depends_on` is `[x]` in the registry.
+3. **Eligible:** incomplete track where every id in `depends_on` is `[x]` in the registry or has a folder in `conductor/archive/`.
 4. **Blocked:** incomplete track where any `depends_on` id is not `[x]`. Record first missing dependency for messaging.
 5. **Sort eligible** by `order` ascending (null/`order` missing → treat as `999`), then registry order.
 6. **Parallel-ready:** eligible tracks sharing the lowest `order` among eligible tracks (programme table `∥` rows should use the same `order` value).
