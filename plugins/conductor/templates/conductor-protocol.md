@@ -65,6 +65,7 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/<file>.plan.md
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> [--create-ok]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" backlog
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [--force]
 ```
 
@@ -73,6 +74,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [-
 | `tracks` | Manual registry parse + **Eligible Tracks Protocol** steps 1–6 | `eligible` (sorted, `parallel_ready` flag), `blocked` (with `missing`), `in_progress`, `archivable`, `recommended`, `all_complete` |
 | `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`), `deferred`, `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
 | `verify-paths <file>` | Path verification checklist `test -f` loop | `paths[]` with `verified` / `missing` / `create` / `line-out-of-range` and `suggestions`; exit 2 when anything is missing |
+| `backlog` | Grepping `backlog.md` for candidates | `items[]` with `slug`, `title`, `status` (`open` / `done` / `parked` / `gated` / `decided`), `line`, `section`; `open` count; `duplicates` |
 | `archive <track_id>` | Hand-moving the spec folder and editing the registry | Moves spec **and** plan into `conductor/archive/<id>/`, rewrites the entry as an `(archived)` ledger line; exit 3 with `needs_confirmation` (`not_completed`, `deferred_checks`) unless `--force` |
 
 Rules:
@@ -100,6 +102,20 @@ Rules:
 **Continue after complete:** Never auto-advance without user confirmation. In §5.0 cleanup, add **combined options** when eligible next tracks exist (e.g. `Archive and continue to <track_id>`, `Skip and continue to <track_id>`). On continue, reset per-track git isolation and loop to §3.0.
 
 **True parallelism:** The implement loop drives **one track at a time**. Parallel-ready tracks may run concurrently only through the **Parallel Dispatch Protocol** (subagents in separate worktrees) or separate chats; never interleave two tracks' todos in one loop.
+
+## Backlog Format
+
+**Backlog** (`conductor/context/backlog.md`) holds work not yet promoted to a track. Items are addressed by the slug of their title (`conductor_state.py backlog`), so keep titles stable.
+
+```markdown
+- [ ] **Title in plain words** — one-line summary. Added YYYY-MM-DD while <context>.
+  Optional indented detail: evidence, file:line, what was verified and how.
+- [ ] **PARKED: Title** — why it is parked and what unparks it.
+- [x] **Title** — promoted YYYY-MM-DD to track `<track_id>`.
+- [x] **Title** — decided YYYY-MM-DD: not building, because <reason>; reopen if <condition>.
+```
+
+Headings group items; in a file with no checkbox items, each heading is an item. Discovered work that is out of the current track's scope gets one line here, never a silent fix.
 
 ## Knowledge Bundle Resolution
 

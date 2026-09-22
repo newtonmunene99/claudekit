@@ -151,6 +151,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     a. **Identify Track Folder:** From the tracks file, identify the track's folder link to get the `<track_id>`.
     b. **Read Files:**
         -   **Track Context:** Using the **Universal File Resolution Protocol**, resolve and read the **Specification** and **Conductor plan file** for the selected track.
+        -   **Resume section:** If the plan body ends with a `## Resume` section (written by `/conductor:conductor-handoff`), read it first: start from its **Next** todo, trust its **Verified** facts, re-check its **Unverified** ones, and resolve **Unrecorded commits** before anything else. Delete the section once the first todo of this session completes; it is stale after that.
         -   **Workflow:** Resolve **Workflow** (via the **Universal File Resolution Protocol** using the project's index file).
     c. **Error Handling:** If you fail to read any of these files, you MUST stop and inform the user of the error.
 
@@ -273,6 +274,10 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         - Label: `Choose next track…`, Description: Pick among all eligible tracks (follow-up **User Prompt Protocol**).
 
     Put the **recommended** next track (lowest `order`) first among continue options.
+
+    **When no eligible next track exists**, run `conductor_state.py backlog` and, if it has `open` items, append up to 2 options: `Archive and promote <item title>` (archive, then run `/conductor:conductor-new-track backlog:<slug>`).
+
+    **Also offer** `Hand off to a new session` when the session is long (a context compaction happened, or this track had more than ~20 todos): follow `/conductor:conductor-handoff`.
 
     - **questions:**
         - **header:** "Track Cleanup"

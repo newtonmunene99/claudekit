@@ -90,16 +90,19 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 ### 2.1 Get Track Description and Determine Type
 
-1.  **Load Project Context:** Read and understand the content of the project documents (**Product Definition**, **Tech Stack**, etc.) resolved via the **Universal File Resolution Protocol**.
+1.  **Load Project Context, narrowly:** Read **Working Agreements** (per the **Working Agreements Protocol**), then only what this track needs: the **Product Definition** summary, the **Tech Stack** sections relevant to the description (grep, don't read the whole file), and the backlog item when there is one. Survey the codebase with a read-only Explore subagent that returns a short summary rather than reading whole components into this context. Trust facts the user or a handoff marks as verified, and re-check only those marked unverified.
 2.  **Get Track Description & Enter Plan Mode:**
-    *   **If `{{args}}` is empty:**
-        1. Ask the user using the **User Prompt Protocol** (do not repeat the question in the chat):
+    *   **If `{{args}}` is empty:** run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" backlog`.
+        1. If it lists `open` items, use the **User Prompt Protocol** to offer up to 3 of them (label = title, description = one line on why now; put the one you recommend first, marked `(Recommended)`), plus **Something else**. A picked item is the description; continue as for `backlog:<slug>` below.
+        2. Otherwise, or on **Something else**, ask the user using the **User Prompt Protocol** (do not repeat the question in the chat):
             - **questions:**
                 - **header:** "Description"
                 - **type:** "text"
                 - **question:** "Please provide a brief description of the track (feature, bug fix, chore, etc.) you wish to start."
                 - **placeholder:** "e.g., Implement user authentication"
             Await the user's response and use it as the track description.
+        3. If `duplicates` is non-empty, mention it in one line ("backlog.md repeats N items; want me to dedupe it?") and offer the cleanup once.
+    *   **If `{{args}}` is `backlog:<slug>` or names a backlog item:** find the item in the `backlog` output (slug first, then title). Its title and body are the description, and any "Notes for next session" under it are verified context. If the item sits under a programme section, or its text names a programme, inherit that `programme_id` and set `order` to the programme's highest `order` + 1. Remember the item's line for promotion (§2.5 step 7b).
     *   **If `{{args}}` contains a description:**
         1. Use the content of `{{args}}` as the track description.
         2. **Infer Track Type:** Analyze the description to determine if it is a "Feature" or "Something Else" (e.g., Bug, Chore, Refactor). Do NOT ask the user to classify it.
@@ -138,6 +141,10 @@ After loading the track description, check for **programme mode**:
 2.  **Explore Context:** Read **Product Definition**, **Tech Stack**, and relevant codebase areas related to the track description.
 
 3.  **Scope Decomposition:** If the description spans multiple independent subsystems, immediately use the **User Prompt Protocol** to propose splitting into separate tracks before continuing.
+
+**This section is the brainstorm.** Do not load a separate brainstorming or planning skill on top of it.
+
+**Triage exit.** When the user asks only to evaluate an item ("should we build this?", "look at these backlog items"), or the brainstorm concludes the work should not be built now, stop before §2.3: write the verdict into the backlog item (what was decided, why, and what would reopen it, e.g. `- [x] **<title>** — decided 2026-09-08: not building; reopen if <condition>.`), and create no track. When the real question is a choice between architectures or build-versus-don't, offer a **decision track** instead (§2.5b applies to a standalone track too).
 
 #### If FEATURE (full brainstorm flow)
 
@@ -285,7 +292,7 @@ For each approved spec:
 
 ### 2.5b Decision track scaffold (OKF knowledge bundle)
 
-When programme includes a decision track, at artifact write time:
+When the track is a decision track (inside a programme, or standalone from the triage exit), at artifact write time:
 
 1. **Resolve bundle root** per **Knowledge Bundle Resolution** in templates/conductor-protocol.md (load `templates/knowledge/bundle-placement-guide.md`). Prefer `<pkg>/knowledge/` from review/track scope; else repo-root `knowledge/`.
 2. If no bundle exists, scaffold from `templates/knowledge/` at the resolved root (`index.md`, `log.md`, `decisions/index.md`).
@@ -344,11 +351,12 @@ Use `templates/knowledge/decision-concept.md` for the OKF deliverable shape (`ty
           *Spec: [../specs/<track_id>/spec.md](../specs/<track_id>/spec.md)*
           *Plan: [../plans/<slug>_<shortid>.plan.md](../plans/<slug>_<shortid>.plan.md)*
         ```
+7b. **Promote the backlog item** (when the track came from one): rewrite its line as ``- [x] **<title>** — promoted YYYY-MM-DD to track `<track_id>`.`` For a heading-style backlog, append ``_(promoted YYYY-MM-DD to `<track_id>`)_`` to the heading. Keep the item's body; it records why the track exists.
 8.  **Commit Conductor Files (only when Conductor files is `committed`):**
     -   Follow **Working Agreements** and the **Git Write Policy** in templates/conductor-protocol.md for all files created or modified in this workflow (spec, plan, index, metadata, **Tracks Registry**, backlog). An OKF knowledge scaffold outside `conductor/` is committed in either mode.
     -   Suggested message: `conductor(track): Add track '<track_description>'` or `conductor(track): Add programme '<programme_id>'`.
     -   When `local`, skip silently.
-9.  **Announce Completion:** One line: "Track `<track_id>` ready. Next: run `/conductor:conductor-implement`." For programmes: list track order and first implementable track (lowest `order` with satisfied `depends_on`).
+9.  **Announce Completion and offer to start:** One line: "Track `<track_id>` ready." Then use the **User Prompt Protocol**: **Start implementing now (Recommended)** runs `/conductor:conductor-implement <track_id>` in this session; **Later** ends with the command to run. For programmes: list track order and the first implementable track (lowest `order` with satisfied `depends_on`).
 
 ### 2.5p Programme artifacts write loop
 

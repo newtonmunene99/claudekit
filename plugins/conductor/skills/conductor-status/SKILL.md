@@ -82,7 +82,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 ### 2.3 Present Status Overview
 1.  **Compute dependency state:** For programme tracks, apply **Eligible Tracks Protocol** in templates/conductor-protocol.md. Identify **eligible**, **parallel-ready** (lowest shared `order`), and **blocked** tracks.
 2.  **Output Summary:** Follow **Output Style** above. Required fields:
-    -   **Next action:** `/conductor:conductor-implement` when eligible tracks exist; name the recommended track (lowest `order`). If none eligible, say which blocker to clear first.
+    -   **Next action:** `/conductor:conductor-implement` when eligible tracks exist; name the recommended track (lowest `order`). If none eligible, say which blocker to clear first. If no incomplete tracks remain, run `conductor_state.py backlog` and suggest `/conductor:conductor-new-track backlog:<slug>` for the best open item (name up to 3).
     -   **In progress:** `[~]` track — task N/M (or "none")
     -   **Progress:** tasks_completed/tasks_total across active programme or all tracks (percentage)
     -   **Eligible:** comma-separated track ids/descriptions; append `(∥)` when multiple parallel-ready

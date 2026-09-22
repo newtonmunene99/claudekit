@@ -176,7 +176,7 @@ Use this protocol when tests fail, behavior is unexpected, or a fix attempt did 
 
 10. **Record the checkpoint:** Append `[checkpoint: <sha>]` (first 7 characters of `HEAD`) to the phase heading in the plan body and mark the verify todo `completed` (or `deferred`). When **Conductor files** is `committed`, commit the plan updates for this phase now (`conductor(plan): Update progress for phase '<phase>'`).
 
-11. **Announce and continue:** One line: phase done, checkpoint SHA, what now works. Then follow **Autonomy** in **Working Agreements**: with `until-needed`, start the next phase in the same turn; with `phase`, stop here.
+11. **Announce and continue:** One line: phase done, checkpoint SHA, what now works. Then follow **Autonomy** in **Working Agreements**: with `until-needed`, start the next phase in the same turn; with `phase`, stop here. On a long track (more than ~20 todos) where this session has already been compacted, add one line suggesting `/conductor:conductor-handoff` before the next phase: a fresh session costs less than a second compaction.
 
 ### Quality Gates
 
