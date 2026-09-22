@@ -142,6 +142,12 @@ When adding strict registration validation (reject empty slices, required fields
 
 ## Test design constraints
 
+Tests in the plan follow **Test Quality Rules** (`templates/test-quality.md`): literal expectations, real objects or fakes before mocks, no tautological tests.
+
+**Contract probes.** When a todo consumes an external API, CLI, or file format whose real payloads are not already captured in the repo, add a `PREREQUISITE:` probe todo before it: a read-only live capture saved as testdata. Every fixture and asserted shape in later todos comes from that capture or cites its source (proto, schema, official docs). Never write test code in the plan against a payload shape nobody has seen.
+
+**Registration points.** For a new package, resource, command, or module, inspect the most recent comparable addition (`git show --stat <commit>`) and give every non-source file it touched a todo: CI matrices, test harnesses, examples, docs indexes, provider registration.
+
 Flag and fix plan todos that:
 
 - Sleep >5s in tests (require injectable clocks)
@@ -223,6 +229,9 @@ After drafting the complete plan, hand this checklist to a **fresh verifier** pe
 9. **Namespace:** Single owner for shared ID registries when programme spans tracks.
 10. **Edges:** Every `blocked_by` names a real data dependency; every implementation todo declares `files`; `conductor_state.py plan` reports no `unknown_blockers`.
 11. **Green commits:** No todo is only "write failing tests" or only "implement". Each behaviour todo names the test that fails before it; each `kind: refactor` todo names the existing tests that must stay green.
+12. **Contracts:** Every external payload shape used in tests has a probe todo or a cited source. No fixture is invented.
+13. **Registration points:** Every CI, harness, example, or registration file touched by the last comparable addition has a todo.
+14. **Tooling:** Dependency, build, and codegen steps use the exact commands and flags recorded in **Tech Stack** and the Workflow's **Development Commands**.
 
 ## Direct plan execution
 

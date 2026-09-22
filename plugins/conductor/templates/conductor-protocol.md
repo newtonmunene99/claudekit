@@ -260,6 +260,7 @@ On a hit, rewrite the text before committing. Before a merge, PR, or tag, run th
 | Optional input missing (style guide, `metadata.json`, index link) | **Skip** | Use the documented default, note the gap in the next message, continue. |
 | Required input missing (spec, plan, workflow, registry) | **Stop** | Announce the missing file and the command that creates it. Halt this operation only. |
 | Test or verification failure | **Repair** | Run the **Systematic Debugging Protocol** in the **Workflow**; count in `attempts`. |
+| The live system contradicts a spec or plan premise (an API field, filter, or format behaves differently than assumed) | **Investigate** | Before asking the user anything, read how the owning service or a reference client handles it (**Tech Stack**, repo references), capture the real behaviour as testdata, then escalate with the evidence and 2–3 options. Update the spec and pending todos once decided. |
 | Independent verifier returns **Reject** | **Repair** | Fix the named issues in the same todo; re-verify. Counts toward `attempts`. |
 | Budget exhausted (`attempts` ≥ 3, `review_rounds` ≥ 2, batch member failed twice) | **Escalate** | **User Prompt Protocol**: state what failed, what was tried, and offer Continue / Change approach / Stop. |
 | Git write declined, permission denied, or `git` unavailable | **Skip** | Record what was skipped, continue the workflow without the write. |
@@ -302,6 +303,7 @@ You are a read-only verifier. Do not edit files. Do not run git write commands.
 Scope: [todo id + content]
 Contract: [Files / Interfaces / acceptance criteria]
 Evidence: [diff, test output]
+Tests: apply the "Checks for verifiers and reviewers" in [path to templates/test-quality.md]; flag tautological tests and fixtures with no captured or cited source.
 Return exactly: "Verdict: Approve" or "Verdict: Reject" followed by numbered, file:line-anchored issues.
 Flag only what you can point to in the evidence. Do not flag pre-existing code.
 ```

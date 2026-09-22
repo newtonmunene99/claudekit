@@ -185,6 +185,7 @@ Perform checks **on introduced/changed lines only**. Run independent shell comma
 7.  **Performance** — obvious N+1, unbounded loops in changed code (**Medium** or **High**, not Critical unless severe).
 8.  **Testing:**
     - New behavior covered by new or updated tests?
+    - Apply the "Checks for verifiers and reviewers" in `templates/test-quality.md`. A tautological test, or a fixture with no captured or cited source, is **High**: it leaves the behaviour untested while looking covered.
     - Flaky patterns in new tests?
     - **Action:** Run the test suite (infer command from repo: `npm test`, `pytest`, `go test ./...`, etc.). Report pass/fail.
 

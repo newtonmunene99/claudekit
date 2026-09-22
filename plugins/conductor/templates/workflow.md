@@ -61,6 +61,8 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
 
 **Minimal implementation:** Write only enough code to pass the test. No extra features (YAGNI).
 
+**Test quality:** Every test follows **Test Quality Rules** (`${CLAUDE_PLUGIN_ROOT}/templates/test-quality.md` in the Conductor plugin): behaviour through the public API, literal expectations, real objects or fakes before mocks, captured rather than invented fixtures, and no tautological tests. A test that would still pass with the change reverted does not count as the red step.
+
 **One todo, one green commit.** A todo carries its own red → green cycle and lands as one commit with its tests. Red is verified inside the todo, not committed on its own (unless **Red commits** is `allowed` in **Working Agreements**). Todos come in two kinds:
 
 | Kind | Rule |
@@ -146,7 +148,7 @@ Use this protocol when tests fail, behavior is unexpected, or a fix attempt did 
 2.  **Ensure Test Coverage for Phase Changes:**
     -   **Step 2.1: Determine Phase Scope:** Find the previous phase's checkpoint SHA in the plan body (`[checkpoint: <sha>]`). If no previous checkpoint exists, the scope starts at the track's first commit.
     -   **Step 2.2: List Changed Files:** `git diff --name-only <previous_checkpoint_sha> HEAD`.
-    -   **Step 2.3: Verify and Create Tests:** For each changed code file (skip `.json`, `.md`, `.yaml` and other non-code files), verify a corresponding test exists. If one is missing, write it, first matching the naming and style of the repo's existing tests. New tests must validate this phase's todos.
+    -   **Step 2.3: Verify and Create Tests:** For each changed code file (skip `.json`, `.md`, `.yaml` and other non-code files), verify a corresponding test exists. If one is missing, write it, first matching the naming and style of the repo's existing tests. New tests must validate this phase's todos and follow **Test Quality Rules**.
 
 3.  **Execute Automated Tests with Proactive Debugging:**
     -   Announce the exact command in one line, then run it. Example: "Tests: `CI=true npm test`".
