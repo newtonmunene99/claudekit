@@ -186,5 +186,77 @@ class ArchiveTrack(unittest.TestCase):
     self.assertEqual(out["archivable"], ["grid_20260101"])
 
 
+class Backlog(unittest.TestCase):
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def test_checkbox_items_get_slugs_and_status(self):
+    self.p.write("conductor/context/backlog.md", """
+        # Backlog
+
+        - [x] **Filtering across views** — promoted 2026-09-07 to track `view-filters_20260907`.
+        - [ ] **Let the reader widen the conversations column.** Asked for on 2026-09-10.
+          `Specialist.svelte` pins the inbox at 300px.
+        - [ ] Windows and Linux verification (buildable, untested)
+        """)
+    out, code = self.p.run("backlog")
+    self.assertEqual(code, 0)
+    self.assertEqual([i["slug"] for i in out["items"]], [
+        "filtering-across-views",
+        "let-the-reader-widen-the-conversations-column",
+        "windows-and-linux-verification-buildable-untested"])
+    self.assertEqual([i["status"] for i in out["items"]], ["done", "open", "open"])
+    self.assertEqual(out["open"], 2)
+
+  def test_heading_items_and_parked_markers(self):
+    self.p.write("conductor/context/backlog.md", """
+        # Backlog
+
+        ## Full live graph view
+        Needs per-node events.
+
+        ## PARKED: OAuth tool auth
+        Paused spike.
+        """)
+    out, _ = self.p.run("backlog")
+    self.assertEqual([(i["slug"], i["status"]) for i in out["items"]], [
+        ("full-live-graph-view", "open"), ("oauth-tool-auth", "parked")])
+
+  def test_headings_are_sections_when_the_file_has_checkbox_items(self):
+    self.p.write("conductor/context/backlog.md", """
+        # Backlog
+
+        ## Programme: product grid
+        - [ ] **Popover sections** — waiting on features.
+
+        ## Decisions (do not re-propose)
+        - Keep the BFF out of desk.
+        """)
+    out, _ = self.p.run("backlog")
+    self.assertEqual([(i["slug"], i["section"]) for i in out["items"]],
+                     [("popover-sections", "Programme: product grid")])
+
+  def test_decision_headings_are_not_open_work(self):
+    self.p.write("conductor/context/backlog.md", """
+        ## Subagent attribution
+        ## Decisions (do not re-propose)
+        """)
+    out, _ = self.p.run("backlog")
+    self.assertEqual([i["status"] for i in out["items"]], ["open", "decided"])
+
+  def test_reports_duplicated_items(self):
+    self.p.write("conductor/context/backlog.md", """
+        - [ ] **Render the markdown support actually sends.** First copy.
+        - [ ] **Render the markdown support actually sends.** Second copy.
+        """)
+    out, _ = self.p.run("backlog")
+    self.assertEqual(out["duplicates"], ["render-the-markdown-support-actually-sends"])
+
+
 if __name__ == "__main__":
   unittest.main()

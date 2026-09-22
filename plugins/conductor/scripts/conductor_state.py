@@ -7,6 +7,7 @@ Every subcommand prints ONE JSON object on stdout. Run from the project root.
     conductor_state.py tracks                 eligible / blocked / parallel-ready tracks
     conductor_state.py plan <plan.md>         todo counts, in-progress, ready + parallel batches
     conductor_state.py verify-paths <file.md> repo paths cited in a plan or review exist
+    conductor_state.py backlog                open / done / parked backlog items with stable slugs
     conductor_state.py archive <track_id> [--force]
                                               move spec + plan to conductor/archive/<id>/
                                               and leave an "(archived)" ledger line
@@ -27,6 +28,7 @@ CONTEXT_DIR = os.path.join("conductor", "context")
 SPECS_DIR = os.path.join("conductor", "specs")
 ARCHIVE_DIR = os.path.join("conductor", "archive")
 TRACKS_FILE = os.path.join(CONTEXT_DIR, "tracks.md")
+BACKLOG_FILE = os.path.join(CONTEXT_DIR, "backlog.md")
 
 # Registry entries: "- [ ] **Track: desc**" (standard) or "## [ ] Track: desc" (legacy).
 # A programme entry may carry a trailing sequencing hint: "** — _order 2; after A_".
@@ -412,6 +414,70 @@ def cmd_verify_paths(args):
       2 if missing else 0)
 
 
+# --- backlog -----------------------------------------------------------------
+
+# Backlogs come in two shapes: checkbox items ("- [ ] **Title** — note") and
+# section headings ("## Title"). Neither carries an id, so items are addressed
+# by a slug of their title.
+BACKLOG_ITEM = re.compile(r"^- \[(?P<status>[ x~])\]\s+(?P<rest>.+)$")
+BACKLOG_HEADING = re.compile(r"^#{2,4}\s+(?P<rest>.+)$")
+PARKED = re.compile(r"^\**\s*PARKED\b[:\s-]*", re.I)
+
+
+def backlog_slug(title, max_words=8):
+  words = re.findall(r"[a-z0-9]+", title.lower().replace("`", ""))
+  return "-".join(words[:max_words])
+
+
+def _backlog_title(rest):
+  bold = re.match(r"^\*\*(?P<t>.+?)\*\*", rest)
+  title = bold.group("t") if bold else rest.split(" — ")[0]
+  return PARKED.sub("", title.strip()).rstrip(" .:")
+
+
+def cmd_backlog(_args):
+  if not os.path.isfile(BACKLOG_FILE):
+    return {"items": [], "open": 0, "duplicates": [], "missing": True}, 0
+  lines = read_text(BACKLOG_FILE).replace("\r\n", "\n").split("\n")
+  # When a file has checkbox items, its headings only group them.
+  headings_are_items = not any(BACKLOG_ITEM.match(line) for line in lines)
+  items, section = [], None
+  for n, line in enumerate(lines, 1):
+    m = BACKLOG_ITEM.match(line)
+    h = None if m else BACKLOG_HEADING.match(line)
+    if h and not headings_are_items:
+      section = h.group("rest").strip()
+      continue
+    if not (m or h):
+      continue
+    rest = (m or h).group("rest").strip()
+    if m and m.group("status") == "x":
+      status = "done"
+    elif PARKED.match(rest) or re.search(r"\(paused\b", rest, re.I):
+      status = "parked"
+    elif re.search(r"_\(gated\b", rest):
+      status = "gated"
+    elif re.search(r"do not re-propose|won'?t do|\bdecided\b", rest, re.I):
+      status = "decided"
+    elif h and re.search(r"~~|\(promoted|\(done", rest, re.I):
+      status = "done"
+    else:
+      status = "open"
+    title = _backlog_title(rest)
+    items.append({"slug": backlog_slug(title), "title": title, "status": status,
+                  "line": n, "section": section})
+  seen, duplicates = set(), []
+  for item in items:
+    if item["slug"] in seen and item["slug"] not in duplicates:
+      duplicates.append(item["slug"])
+    seen.add(item["slug"])
+  return {
+      "items": items,
+      "open": sum(1 for i in items if i["status"] == "open"),
+      "duplicates": duplicates,
+  }, 0
+
+
 # --- archive -----------------------------------------------------------------
 
 INDEX_PLAN_LINK = re.compile(r"\((?P<path>\.\./\.\./plans/[^)]+\.plan\.md)\)")
@@ -512,12 +578,12 @@ def cmd_archive(args):
 # --- main --------------------------------------------------------------------
 
 COMMANDS = {"tracks": cmd_tracks, "plan": cmd_plan, "verify-paths": cmd_verify_paths,
-            "archive": cmd_archive}
+            "backlog": cmd_backlog, "archive": cmd_archive}
 
 
 def main(argv):
   if len(argv) < 2 or argv[1] not in COMMANDS:
-    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|archive> [args]"}))
+    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|backlog|archive> [args]"}))
     return 1
   result, code = COMMANDS[argv[1]](argv[2:])
   print(json.dumps(result, indent=2))
