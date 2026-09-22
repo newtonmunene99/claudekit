@@ -76,5 +76,42 @@ class TracksDependsOnArchived(unittest.TestCase):
     self.assertEqual(out["blocked"], [])
 
 
+class PlanDeferredVerification(unittest.TestCase):
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def test_deferred_check_blocks_nothing_and_is_reported(self):
+    self.p.write("conductor/plans/t_abc123.plan.md", """
+        ---
+        name: T
+        todos:
+          - id: conductor-sync-in-progress
+            status: completed
+          - id: build-grid
+            status: completed
+            phase: P1
+          - id: verify-p1
+            status: deferred
+            phase: P1
+          - id: build-toolbar
+            status: pending
+            phase: P2
+            blocked_by: [verify-p1]
+          - id: conductor-sync-complete
+            status: pending
+        ---
+        """)
+    out, code = self.p.run("plan", "conductor/plans/t_abc123.plan.md")
+    self.assertEqual(code, 0)
+    self.assertEqual(out["next"]["id"], "build-toolbar")
+    self.assertEqual(out["counts"]["deferred"], 1)
+    self.assertEqual(out["deferred"], ["verify-p1"])
+
+
 if __name__ == "__main__":
   unittest.main()

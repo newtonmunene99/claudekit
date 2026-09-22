@@ -22,6 +22,18 @@ Follow **Agent Output Style** in `templates/conductor-protocol.md` and `template
 
 **Implement-specific:** Each progress message = (1) what now works, (2) task N/M + track name, (3) next todo. On errors: file:line, cause, fix. On track complete: lead with shipped outcome, then §5.0 cleanup **User Prompt Protocol** — include combined continue options when eligible next tracks exist (user must choose; never auto-advance).
 
+## Keep-Going Rule
+
+A progress message is not the end of a turn. After reporting a todo, start the next one in the same turn. The turn ends only when:
+
+- a hand check needs the user (workflow phase protocol step 6),
+- an escalation or a decision needs the user (**Failure Policy**, a design question),
+- a git prompt is required (**Commit approval** `each`, or a push, merge, or tag),
+- **Autonomy** in **Working Agreements** says to pause here (`phase` or `todo`), or
+- the track is complete (§5.0).
+
+Never end a turn on "Continuing to…", "Carrying on…", or "Want me to keep going?". If the user interjects with a side request mid-track, handle it, then re-run `conductor_state.py plan` and continue with `next` unless they said to stop. Never ask how often to check in: that is **Autonomy**.
+
 ## Plugin Template Path
 
 Locate plugin templates in this order:
@@ -44,7 +56,7 @@ isProject: true
 ---
 ```
 
-- `status` values: `pending`, `in_progress`, `completed`
+- `status` values: `pending`, `in_progress`, `completed`, and `deferred` (a phase hand check the user postponed; it blocks nothing)
 - On task completion, set `status: completed` and append commit SHA to `content`
 - Markdown body below frontmatter carries phases, goals, architecture
 - Register plan path in `conductor/context/tracks.md`
@@ -85,6 +97,8 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   **Workflow**
 
 2.  **Handle Failure:** If ANY of these are missing (or their resolved paths do not exist), Announce: "Conductor is not set up. Please run `/conductor:conductor-setup`." and HALT.
+
+3.  **Working Agreements:** Read them per the **Working Agreements Protocol** in templates/conductor-protocol.md. If the **Workflow** has no Working Agreements section, add it now (protocol rule 4) before selecting a track.
 
 
 ---
@@ -151,17 +165,17 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     b. **Iterate Through Tasks:** Before each task, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` and take `next` — the first todo whose `blocked_by` are all completed (frontmatter order is the tie-break, not the rule). If `parallel_batch` is non-empty, run the **Parallel Dispatch Protocol** in templates/conductor-protocol.md (offer parallel via **User Prompt Protocol**; never assume). If `waiting` lists `unknown_blockers`, announce the misspelled id and ask before continuing. Track whether **Git Isolation** has run for the **current track** (`git_isolation_done`).
     c. **For Each Task:**
         i. **`conductor-sync-in-progress`:** Update registry `[~]`, metadata `in_progress`, refresh `updated_at`. Mark todo `completed`. Follow **Git Write Policy** for any commit. Then run **Git Isolation** per step d if not yet done.
-        ii. **`conductor-sync-complete`:** For decision tracks (`track_role: decision` in metadata), verify no `spike/*` branch exists (`git branch --list 'spike/*'`). If spike branch exists, halt — run `/conductor:conductor-prototype` delete step first. Update registry `[x]`, metadata `completed`, refresh `updated_at`. Mark todo `completed`. Follow **Git Write Policy** to commit Conductor files.
+        ii. **`conductor-sync-complete`:** For decision tracks (`track_role: decision` in metadata), verify no `spike/*` branch exists (`git branch --list 'spike/*'`). If spike branch exists, halt — run `/conductor:conductor-prototype` delete step first. Update registry `[x]`, metadata `completed`, refresh `updated_at`. Mark todo `completed`. Commit Conductor files only when **Conductor files** is `committed`. **Then continue to §4.0 and §5.0 in the same turn**: completing the bookend does not end the track, including after a context compaction.
         iii. **All other todos:** Before the first implementation todo, if sync-in-progress is satisfied (registry `[~]`) and **Git Isolation** has not run, execute step d. Then follow the **Workflow** task lifecycle.
-           - **CRITICAL:** Human-in-the-loop steps in the **Workflow** MUST use **User Prompt Protocol**.
-           - **Before commit:** Run the **Independent Verification Protocol** (fresh verifier subagent) per the **Workflow** step 6b.
+           - **CRITICAL:** Human-in-the-loop steps in the **Workflow** use the **User Prompt Protocol**, except hand checks, which are asked in plain chat (protocol rule 8).
+           - **Before commit:** Run the **Independent Verification Protocol** for risky todos per the **Workflow** step 6b and **Verifier** in **Working Agreements**; other todos are verified per phase.
            - **On test failure:** Follow the **Systematic Debugging Protocol** in the **Workflow**; persist `attempts` on the todo per **Convergence Budgets**.
            - **On any failure:** Apply the **Failure Policy** row; a failed todo never discards passing sibling work.
-    d. **Git Isolation (once per track):** After sync-in-progress is satisfied and **before** any implementation todo or other Git write, follow the **Git Isolation Protocol** in templates/conductor-protocol.md. Set `git_isolation_done` after completing. Reset `git_isolation_done = false` when starting a new track via §5.0 continue options. Also run after step 3 legacy sync if the plan has no sync-in-progress todo.
+    d. **Git Isolation (once per track):** After sync-in-progress is satisfied and **before** any implementation todo or other Git write, follow the **Git Isolation Protocol** in templates/conductor-protocol.md (it applies **Branch** from **Working Agreements** without asking when set). On a resumed `[~]` track whose `metadata.json` records `git.branch`, switch to or stay on that branch instead of asking again. Set `git_isolation_done` after completing. Reset `git_isolation_done = false` when starting a new track via §5.0 continue options. Also run after step 3 legacy sync if the plan has no sync-in-progress todo.
 
 5.  **Legacy Finalize Fallback (only when the plan has no `conductor-sync-complete` todo, or it remains pending after the loop):**
     -   Update **Tracks Registry** `[~]` → `[x]` and metadata `completed` if not already done.
-    -   Follow **Git Write Policy** to commit Conductor files.
+    -   Commit Conductor files only when **Conductor files** is `committed` (**Git Write Policy**).
     -   Announce track completion.
     -   If the loop completed `conductor-sync-complete`, **skip this step**.
 
@@ -228,7 +242,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
                     - **type:** "yesno"
         iv. **Action:** Only after receiving explicit user confirmation, perform the file edits. Keep a record of whether this file was changed.
 
-6.  **Final Report:** One line per changed file (max 5). If none changed: "No doc updates needed." If any file changed, follow **Git Write Policy** before commit (`docs(conductor): Synchronize docs for track '<track_description>'`).
+6.  **Final Report:** One line per changed file (max 5). If none changed: "No doc updates needed." If any file changed and **Conductor files** is `committed`, follow **Git Write Policy** before commit (`conductor(docs): Synchronize project docs`).
     - **Example (Product Definition changed):**
         > "Docs synced. **Product Definition** updated for the new feature. **Tech Stack** and **Product Guidelines** unchanged."
     - **Example (no changes):**

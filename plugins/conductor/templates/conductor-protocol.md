@@ -55,6 +55,7 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 - `blocks` — array of `track_id` values this track gates
 - `track_role` — `implementation` | `decision` | `docs`
 - `deliverable` — for decision tracks: OKF concept path within resolved bundle (e.g. `<pkg>/knowledge/decisions/<slug>.md` or `knowledge/decisions/<slug>.md`)
+- `git` — `{"branch": "<name>", "base": "<base branch>"}`, written by the **Git Isolation Protocol** so resume and track finish know where the work lives
 
 ## Deterministic Plumbing Protocol
 
@@ -153,7 +154,7 @@ Claude Code may ignore unknown fields — they remain for agent protocol and pro
 **Mandatory sync bookends** — every generated plan MUST include:
 
 - **First todo:** `id: conductor-sync-in-progress` — mark track `[~]` in **Tracks Registry**, set `metadata.json` `status: in_progress`, update `updated_at`.
-- **Last todo:** `id: conductor-sync-complete` — mark track `[x]`, set `metadata.json` `status: completed`, update `updated_at`, commit Conductor files.
+- **Last todo:** `id: conductor-sync-complete` — mark track `[x]`, set `metadata.json` `status: completed`, update `updated_at`, commit Conductor files only when **Conductor files** is `committed` in **Working Agreements**. Then run implement §4.0 (doc sync) and §5.0 (track cleanup); completing this todo does not end the track.
 
 Do NOT inject feature-branch or worktree todos by default. See **Git Isolation Protocol** below.
 
@@ -168,6 +169,21 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 3. For yes/no gates, ask explicitly: `Proceed? (yes/no)`.
 4. **Wait for the user's reply** before continuing. Do not assume defaults unless the protocol explicitly allows it.
 5. Do not repeat the same question after the user has answered.
+6. **Recommend.** Every choice question puts one option first marked `(Recommended)`, with a one-line reason. Choices without a recommendation stall.
+7. **An answer that is a question or a change request** is handled first, in chat. Re-ask the gate only after answering it; never re-ask as if it were not said.
+8. **Hand checks go in plain chat.** Manual verification steps and their "does this work?" question are plain text, never a structured prompt tool: users answer them with screenshots, logs, and several defects at once.
+9. **Skip what is already answered** in **Working Agreements** (see below).
+
+## Working Agreements Protocol
+
+**PROTOCOL:** Every command reads **Working Agreements** in the **Workflow** before its first prompt. Recorded answers are not asked again.
+
+1. **Read first.** Resolve the **Workflow** and read the Working Agreements table and **Standing rules**. Skip any prompt whose answer is recorded and name the recorded answer in your one-line status instead ("Branch: current, per Working Agreements").
+2. **Standing approval.** The table is the user's explicit authorization under the **Git Write Policy**. With `Commit approval: standing`, `git add` of the todo's files, `git commit`, `git notes add`, and plan commits for the track's own todos run without asking. It never covers `git push`, merge, rebase, reset, tag, branch deletion, or history rewrites: those always ask.
+3. **Conductor files.** Once per command, run `git check-ignore -q conductor/context/index.md`. Exit 0 means `local` whatever the table says (correct the table if it disagrees). With `local`, every "commit Conductor files" step is a silent no-op. Never suggest un-ignoring `conductor/`, and never write advice against ignoring it.
+4. **Projects without the section** (set up before it existed): add it once. Detect what can be detected (Conductor files via `check-ignore`; Red commits `never` for compiled languages or when history shows no failing-test commits), ask the rest in **one** User Prompt Protocol call of up to four questions (Commits with approval, Branch, Autonomy, Manual verification), write the section, and continue. Never ask again.
+5. **Standing rules.** When the user states a rule meant to outlast the task ("never ask me to run tests as verification", "source .env.local before running"), finish the current step, then offer once, yes/no, to add it under **Standing rules**. Treat every standing rule as binding.
+6. **The session wins.** An explicit instruction in the current conversation overrides the table for this session. If it sounds durable, offer to record it.
 
 ## Git Write Policy
 
@@ -187,11 +203,12 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 
 **Before any Git write operation:**
 
-1. **Explicit request:** If the user's message explicitly authorizes the operation (e.g., "commit these changes", "push to origin", "create a feature branch"), proceed.
+1. **Explicit request:** If the user's message explicitly authorizes the operation (e.g., "commit these changes", "push to origin", "create a feature branch"), proceed. Answers recorded in **Working Agreements** are explicit authorization within the limits of the **Working Agreements Protocol**.
 2. **Otherwise ask:** Use the **User Prompt Protocol** before executing. State the exact command(s) you intend to run under header `## Git` with question `I need to run: <command(s)>. Proceed? (yes/no)`.
 3. **If declined:** Do not run the command. Explain what was skipped and continue the workflow when possible.
 4. **Batching:** When multiple write operations belong together (e.g., `git add` then `git commit`), ask once and list all commands.
-5. **Prior approval:** If an earlier User Prompt Protocol step in the same Conductor command already authorized the specific Git command(s), do not ask again.
+5. **Prior approval:** If an earlier User Prompt Protocol step in the same Conductor command already authorized the specific Git command(s), do not ask again. With `Commit approval: track`, one approval at track start covers every todo commit, note, and plan commit of that track.
+6. **Commits: user:** Run no git write commands. Hand over the commit message and exact file list at each phase checkpoint and wait for the user to commit.
 
 This policy applies to all Conductor commands, skills, and the project **Workflow** template.
 
@@ -201,13 +218,15 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
 
 1. If no `.git` directory exists, skip and announce that Git workflows are unavailable.
 2. If the user's message **explicitly** requested a workflow (e.g., "implement on a feature branch"), follow that request without asking.
-3. Otherwise, use the **User Prompt Protocol** once under header `## Git Workflow`:
+3. If **Branch** in **Working Agreements** is `current`, `feature`, or `worktree`, apply it without asking and announce it in one line.
+4. Otherwise (`ask`, or no agreement), use the **User Prompt Protocol** once under header `## Git Workflow`. When the previous track in this session or programme used a branch strategy, offer **Same as last track** first:
    - **Current branch** — Continue on the current branch (default for small/chore tracks)
    - **Feature branch** — Create or switch to a branch (suggest `feature/<track_id>`; confirm name via follow-up if needed)
    - **Git worktree** — Create an isolated worktree (user confirms path/name)
    - **Other** — User describes a custom team workflow
-4. Follow **Git Write Policy** for all git commands.
-5. Do not add git-isolation todos to plans unless the user explicitly asked during new-track planning.
+5. Follow **Git Write Policy** for all git commands.
+6. Do not add git-isolation todos to plans unless the user explicitly asked during new-track planning.
+7. Record the choice in `metadata.json` as `"git": {"branch": "<name>", "base": "<base>"}` so a resumed session and the track-finish step know where the work lives.
 
 ## Artifact Reference Policy
 
@@ -257,7 +276,7 @@ Every loop in Conductor has a measurable exit and a cap. Budgets are stored in t
 | Debug fix attempts | Root-cause test passes | **3** attempts, then **Escalate** | todo `attempts` |
 | Verifier reject → repair | Verifier returns **Approve** | **2** rounds, then **Escalate** | todo `attempts` |
 | Review → Apply Fixes → re-review | Verdict is Approve / Approve with nits | **2** rounds, then **Escalate** | plan `review_rounds` |
-| Phase manual verification | User confirms | user-driven | git note on checkpoint |
+| Phase manual verification | User confirms, or no hand check is needed | user-driven; `later` sets the verify todo `deferred` | git note on the phase's last commit |
 
 Increment the counter **before** the retry, in the plan frontmatter, following the **Git Write Policy** only when committing. Reset `attempts` to 0 when the todo completes.
 
@@ -269,7 +288,8 @@ Dispatch a **fresh subagent** (Claude Code **Agent** tool, or a fresh chat when 
 
 | Gate | Verifier receives | Verdict |
 | ---- | ----------------- | ------- |
-| **Per-todo, before commit** (Workflow task lifecycle) | Todo `content`, its plan-body section, the spec's relevant acceptance criteria, `git diff` of the working tree, test command + output | `Approve` / `Reject: <numbered issues>` |
+| **Per phase, at the checkpoint** (Workflow phase protocol step 4) | The phase's todos and plan sections, the acceptance criteria they serve, `git diff <previous checkpoint>..HEAD`, test output. On the last phase: the whole track diff and every acceptance criterion | `Approve` / `Reject: <numbered issues>` |
+| **Per todo, risky changes only** (Workflow step 6b) | Todo `content`, its plan-body section, the relevant acceptance criteria, `git diff` of the working tree, test command + output | `Approve` / `Reject: <numbered issues>` |
 | **Plan self-review** (`/conductor:conductor-new-track` §2.4) | Drafted plan, spec, `plan-authoring-guide.md` self-review checklist, `verify-paths` output | `Approve` / `Reject: <checklist items failed>` |
 | **Review validation** (`/conductor:conductor-validate-review`) | Review document, cited code | Already independent — keep as is |
 
@@ -284,7 +304,7 @@ Return exactly: "Verdict: Approve" or "Verdict: Reject" followed by numbered, fi
 Flag only what you can point to in the evidence. Do not flag pre-existing code.
 ```
 
-On **Reject**, apply **Failure Policy → Repair**. Skip the per-todo verifier only for `conductor-sync-*` bookends and todos whose diff is documentation-only under 20 lines.
+On **Reject**, apply **Failure Policy → Repair**. Cadence follows **Verifier** in **Working Agreements**: `per-phase` (default) runs the phase verifier and the per-todo verifier only for risky todos (public API or exported symbols, auth, security, secrets, data migrations, or a diff over ~150 lines); `per-todo` runs it for every implementation todo; `off` runs neither. Never run it for `conductor-sync-*` bookends or documentation-only diffs.
 
 ## Parallel Dispatch Protocol
 
@@ -326,7 +346,7 @@ All Conductor commands and skills MUST shape user-facing messages for action-fir
 4. **Make wins visible** — state what now works in concrete terms
 5. **Matter-of-fact errors** — cause + fix; no "Uh oh" or "There seems to be a problem"
 6. **Cap lists at 5** — split into "now" vs "later" when longer
-7. **End with one next step** — one thing doable in under two minutes (or end cleanly when done)
+7. **End with one next step when the turn ends** — one thing doable in under two minutes (or end cleanly when done). A progress update in the middle of a run is not the end of a turn: keep working (see the **Keep-Going Rule** in the implement skill)
 8. **No preamble or closers** — no "Great question", "Hope this helps", "Let me know if..."
 
 Use the **User Prompt Protocol** for structured prompts. Command-specific output formats live in `templates/output-style.md` and in each skill's output section.

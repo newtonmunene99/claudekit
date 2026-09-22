@@ -46,7 +46,7 @@ isProject: true
 ---
 ```
 
-- `status` values: `pending`, `in_progress`, `completed`
+- `status` values: `pending`, `in_progress`, `completed`, and `deferred` (a phase hand check the user postponed; it blocks nothing)
 - On task completion, set `status: completed` and append commit SHA to `content`
 - Markdown body below frontmatter carries phases, goals, architecture
 - Register plan path in `conductor/context/tracks.md`
@@ -440,6 +440,16 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 4.  **Action:** Update `conductor/context/workflow.md` based on all user answers from both steps.
 
+5.  **Working Agreements (always, Default or Customize):** These answers stop Conductor re-asking the same questions on every track.
+    a. **Detect first:** `git check-ignore -q conductor/context/index.md` exits 0 → **Conductor files** is `local`; do not ask. For **Red commits**, use `never` for compiled languages, or when history shows no commits with failing tests; otherwise `never` too unless the user says so.
+    b. **Ask the rest in ONE User Prompt Protocol call** (skip any question already answered by detection or by the user earlier in this session):
+        - **header:** "Conductor files" · **question:** "Should Conductor's files (`conductor/`) be committed, or kept local and gitignored?" · **options:** "Keep local (gitignored)", "Commit them"
+        - **header:** "Commits" · **question:** "How should commits work during implementation?" · **options:** "I commit each todo, no prompts (Recommended): this answer is the approval; push, merge, and tags still ask", "I commit each todo, ask once per track", "I commit, ask every time", "You commit: I hand you messages at each phase"
+        - **header:** "Branch" · **question:** "Where should track work happen?" · **options:** "Current branch", "Feature branch per track", "Worktree per track", "Ask at each track"
+        - **header:** "Autonomy" · **question:** "How far should implement run before stopping?" · **options:** "Until you're needed (Recommended): stop only for a hand check, an escalation, or a decision", "Pause after every phase"
+    c. **Write** the answers into the **Working Agreements** table in `conductor/context/workflow.md` (`Commits`/`Commit approval`: agent+standing, agent+track, agent+each, or user). Leave **Manual verification** `user-visible`, **Verifier** `per-phase`, and describe **Verification runtime** from the tech stack when it is obvious (e.g. "You run `wails3 dev` in your own terminal"); otherwise leave it for the first hand check to fill in.
+    d. **Conductor files `local`:** ensure `.gitignore` contains a `conductor/` line (append it if missing). This is a file edit, not a git write.
+
 ### 2.6 Select Agent Skills (Interactive)
 1.  **Find candidates:** From the skills and MCP tools available in this session, pick the ones that fit the **Tech Stack** and project type: language engineering guides, code review, documentation, complexity, security, framework-specific skills. Exclude Conductor's own skills. Recommend at most 8.
 2.  **If none fit:** announce "No installed skills match this stack; skipping Agent Skills." and continue to §2.7.
@@ -474,7 +484,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         ```
     -   **Create Reviews directory:** Copy `templates/reviews/README.md` to `conductor/reviews/README.md` (create directory if missing).
     -   **Announce:** "Created `conductor/context/index.md` and `conductor/reviews/`."
-    -   **Gitignore:** Offer (via the **User Prompt Protocol**) to append the contents of `${CLAUDE_PLUGIN_ROOT}/templates/conductor-gitignore-snippet.md` to the project `.gitignore` — it excludes per-developer Claude Code overrides; `conductor/` artifacts themselves are committed.
+    -   **Gitignore:** Offer (via the **User Prompt Protocol**) to append the contents of `${CLAUDE_PLUGIN_ROOT}/templates/conductor-gitignore-snippet.md` to the project `.gitignore` (it excludes per-developer Claude Code overrides). Whether `conductor/` itself is ignored was settled in §2.5 step 5; never add text that contradicts it.
     -   **Knowledge:** Do not scaffold `conductor/knowledge/` by default. On setup, discover repo `knowledge/` or `<module>/knowledge/` bundles and link from `index.md`. Offer to scaffold repo-root `knowledge/` via the **User Prompt Protocol** when user asks for project docs.
 
 2.  **Summarize Actions:** Present a summary of all actions taken during the initial setup, including:
@@ -579,7 +589,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         ii. Automatically generate a Conductor plan file at `conductor/plans/<slug>_<shortid>.plan.md` with frontmatter `todos` (see Conductor Plan Format above).
             - **Load Plan Authoring Guide:** Resolve and read `templates/plan-authoring-guide.md` from the **Plugin Template Path**. Follow it for plan quality, mandatory sync todos, and plan body structure.
             - **CRITICAL:** Each todo must have `id`, `content`, and `status: pending`.
-            - **CRITICAL:** The plan structure MUST adhere to `conductor/context/workflow.md` (e.g., TDD: separate todos for "Write Tests" and "Implement").
+            - **CRITICAL:** The plan structure MUST adhere to `conductor/context/workflow.md` (TDD: one todo per behaviour, carrying its own failing test and landing as one green commit; `kind: refactor` for structure-only todos. See **One todo, one green commit** in the Workflow).
             - **CRITICAL: Mandatory sync bookends.** First todo MUST be `conductor-sync-in-progress`; last todo MUST be `conductor-sync-complete`. Do NOT inject git-isolation todos unless the user explicitly requested one.
             - **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`.
             - **CRITICAL: Plan self-review** per the Plan Authoring Guide before writing the file.
@@ -615,6 +625,6 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 ### 3.4 Final Announcement
 1.  **Announce Completion:** After the track has been created, announce that the project setup and initial track generation are complete.
-2.  **Save Conductor Files:** Follow the **Git Write Policy** in templates/conductor-protocol.md before any staging or commit. Suggested message: `conductor(setup): Add conductor setup files`.
+2.  **Save Conductor Files:** Only when **Conductor files** is `committed`: follow the **Git Write Policy** before staging and committing (`conductor(setup): Add conductor setup files`). When `local`, commit only the `.gitignore` change if there is one, under the Git Write Policy.
 3.  **Next Steps:** One line: "Run `/conductor:conductor-implement` to start the initial track `<track_id>`."
 
