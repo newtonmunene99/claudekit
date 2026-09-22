@@ -1,6 +1,6 @@
 ---
 name: conductor-revert
-description: Git-aware revert of track, phase, or task
+description: Git-aware revert of a Conductor track, phase, or task. Only when the user runs it explicitly; it rewrites history.
 disable-model-invocation: true
 ---
 

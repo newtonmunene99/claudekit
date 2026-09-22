@@ -1,7 +1,6 @@
 ---
 name: conductor-programme-review
-description: Review a multi-track remediation programme before implementation
-disable-model-invocation: true
+description: Review a multi-track Conductor remediation programme (sequencing, ownership, dependencies) before implementation starts. Use when the user asks to review a Conductor programme.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.

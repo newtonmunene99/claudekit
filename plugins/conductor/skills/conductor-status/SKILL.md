@@ -1,7 +1,6 @@
 ---
 name: conductor-status
-description: Display project and track progress
-disable-model-invocation: true
+description: Report Conductor progress: the track in progress, task counts, eligible, blocked, and archivable tracks, and deferred checks. Use when the user asks for Conductor status, or what to work on next in a project that has a conductor/ directory.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.

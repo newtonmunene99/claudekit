@@ -1,7 +1,6 @@
 ---
 name: conductor-review
-description: Review completed work against guidelines, plan, spec, and documentation
-disable-model-invocation: true
+description: Review a Conductor track or the working tree against its spec, plan, guidelines, and test quality rules, then offer fixes. Use when the user asks for a Conductor review of a track or of the current changes.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.
