@@ -52,6 +52,8 @@ See each plugin's README for skills, usage, and artifact layout.
 | New track | `/conductor:conductor-new-track` |
 | Implement | `/conductor:conductor-implement` |
 | Status | `/conductor:conductor-status` |
+| Archive | `/conductor:conductor-archive` |
+| Handoff | `/conductor:conductor-handoff` |
 | Revert | `/conductor:conductor-revert` |
 | Review | `/conductor:conductor-review` |
 | Programme review | `/conductor:conductor-programme-review` |
