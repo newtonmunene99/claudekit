@@ -195,6 +195,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         -   **Product Definition**
         -   **Tech Stack**
         -   **Product Guidelines**
+        -   **Workflow** (Development Commands and Standing rules only)
 
 5.  **Analyze and Update:**
     a.  **Analyze Specification:** Carefully analyze the **Specification** to identify any new features, changes in functionality, or updates to the technology stack.
@@ -226,6 +227,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
                         <Insert Proposed tech-stack.md Updates/Diff Here>
                     - **type:** "yesno"
         iii. **Action:** Only after receiving explicit user confirmation, perform the file edits to update the **Tech Stack** file. Keep a record of whether this file was changed.
+    c2. **Correct the Workflow:** If a command from **Development Commands** proved wrong or incomplete during this track (a missing flag, a renamed target), or the track added a required step (a generator, a gate), propose the corrected lines as a diff via the **User Prompt Protocol** (header "Workflow") and apply on approval. Plain factual corrections like these are the one doc change that should never wait for a later track.
     d. **Update Product Guidelines (Strictly Controlled):**
         i. **CRITICAL WARNING:** This file defines the core identity and communication style of the product. It should be modified with extreme caution and ONLY in cases of significant strategic shifts, such as a product rebrand or a fundamental change in user engagement philosophy. Routine feature updates or bug fixes should NOT trigger changes to this file.
         ii. **Condition for Update:** You may ONLY propose an update to this file if the track's **Specification** explicitly describes a change that directly impacts branding, voice, tone, or other core product guidelines.

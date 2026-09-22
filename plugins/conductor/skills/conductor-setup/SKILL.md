@@ -152,14 +152,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         -   Announce that an existing project has been detected, and **briefly state the specific indicator you found** (e.g., "because I found a `package.json` file"). Be concise.
         -   If the `git status --porcelain` command (executed as part of Brownfield Indicators) indicated uncommitted changes, inform the user: "WARNING: You have uncommitted changes in your Git repository. Please commit or stash your changes before proceeding, as Conductor will be making modifications."
         -   **Begin Brownfield Project Initialization Protocol:**
-            -   **1.0 Pre-analysis Confirmation:**
-                1.  **Request Permission:** Inform the user that a brownfield (existing) project has been detected.
-                2.  **Ask for Permission:** Request permission for a read-only scan to analyze the project using the **User Prompt Protocol**:
-                    - **header:** "Permission"
-                    - **question:** "A brownfield (existing) project has been detected. May I perform a read-only scan to analyze the project?"
-                    - **type:** "yesno"
-                3.  **Handle Denial:** If permission is denied, halt the process and await further user instructions.
-                4.  **Confirmation:** Upon confirmation, proceed to the next step.
+            -   **1.0 Read-only scan:** Running setup is the request; a read-only scan needs no extra permission. Announce it in one line ("Existing project: scanning it read-only to draft the context.") and proceed.
 
             -   **2.0 Code Analysis:**
                 1.  **Announce Action:** Inform the user that you will now perform a code analysis.
@@ -201,6 +194,18 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         -   Write the user's response into `conductor/context/product.md` under a header named `# Initial Concept`.
 
 6.  **Continue:** Immediately proceed to the next section.
+
+### 2.0b Drafting Mode (ask once)
+
+Before §2.1, use the **User Prompt Protocol** once:
+
+- **header:** "Drafting"
+- **question:** "How should I draft the product guide, guidelines, and tech stack?"
+- **options:**
+    - "Draft all three, one review (Recommended)": I draft them from the code, the README, and this conversation, write them, and you review all three in one step.
+    - "Document by document": the interactive flow for each of §2.1–2.3.
+
+**Draft all three:** skip the per-document mode and approval prompts in §2.1–2.3. Draft `product.md`, `product-guidelines.md`, and `tech-stack.md` (brownfield: the detected stack, never a proposed one), write them, then ask one **User Prompt Protocol** question listing each file with a 3–5 line summary: **Approve all (Recommended)** / **Revise** (the user names the file and change). Then continue at §2.4.
 
 ### 2.1 Generate Product Guide (Interactive)
 1.  **Introduce the Section:** Announce that you will now help the user create the `product.md`.
@@ -439,6 +444,11 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 4.  **Action:** Update `conductor/context/workflow.md` based on all user answers from both steps.
 
+4b. **Adapt to this project (always, Default or Customize):** The template is written for a generic web app; make it this project's.
+    - **Development Commands:** fill Setup, Daily Development, and Before Committing from what the repo actually uses (`Taskfile.yml`, `Makefile`, `package.json` scripts, `justfile`, CI workflow files), including required flags. Check each command exists (`task --list`, `make -n <target>`, the scripts table) and remove the placeholder instruction. A wrong command here does real damage: a bare `wails3 generate bindings`, missing the project's `-ts` flag, deleted every TypeScript binding.
+    - **Prune by project type:** for a library, SDK, CLI, or infrastructure provider, remove sections that do not apply (Mobile Testing, form submissions, database migrations, the deploy-service steps) and add a short **Release** section from the repo's practice (tag scheme, changelog tool, publish command).
+    - **Verification runtime:** say how the product is run for hand checks (app, CLI, local server, or the provider's test harness).
+
 5.  **Working Agreements (always, Default or Customize):** These answers stop Conductor re-asking the same questions on every track.
     a. **Detect first:** `git check-ignore -q conductor/context/index.md` exits 0 → **Conductor files** is `local`; do not ask. For **Red commits**, use `never` for compiled languages, or when history shows no commits with failing tests; otherwise `never` too unless the user says so.
     b. **Ask the rest in ONE User Prompt Protocol call** (skip any question already answered by detection or by the user earlier in this session):
@@ -482,6 +492,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         - [Specs Directory](../specs/)
         ```
     -   **Create Reviews directory:** Copy `templates/reviews/README.md` to `conductor/reviews/README.md` (create directory if missing).
+    -   **Create the registry and backlog** if missing, so later commands never find them absent even when §3 is skipped: `conductor/context/tracks.md` with the header from §3.3 step 2 (no entries yet) and `conductor/context/backlog.md` with `# Backlog` and one line pointing at **Backlog Format** in the protocol.
     -   **Announce:** "Created `conductor/context/index.md` and `conductor/reviews/`."
     -   **Gitignore:** Offer (via the **User Prompt Protocol**) to append the contents of `${CLAUDE_PLUGIN_ROOT}/templates/conductor-gitignore-snippet.md` to the project `.gitignore` (it excludes per-developer Claude Code overrides). Whether `conductor/` itself is ignored was settled in §2.5 step 5; never add text that contradicts it.
     -   **Knowledge:** Do not scaffold `conductor/knowledge/` by default. On setup, discover repo `knowledge/` or `<module>/knowledge/` bundles and link from `index.md`. Offer to scaffold repo-root `knowledge/` via the **User Prompt Protocol** when user asks for project docs.
@@ -553,7 +564,9 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         - **options:**
             - Label: "Yes", Description: "Proceed with '<Track Title>'."
             - Label: "Suggest changes", Description: "I want to define a different track."
+            - Label: "Skip", Description: "No first track now; I'll run /conductor:conductor-new-track when ready."
 4.  **Action:**
+    -   **If user chose "Skip":** go to §3.4 (the registry and backlog already exist from §2.7).
     -   **If user chose "Yes":** Use the suggested '<Track Title>' as the track description.
     -   **If user chose "Suggest changes":**
         -   Immediately use the **User Prompt Protocol** again:
@@ -569,7 +582,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 **Note:** Setup auto-generates the initial track spec and plan without the §2.2 brainstorm HARD-GATE from `/conductor:conductor-new-track`. That is intentional for bootstrap — use `/conductor:conductor-new-track` for subsequent tracks with full brainstorm → spec → plan flow.
 
 1.  **State Your Goal:** Once the track is approved, announce that you will now create the artifacts for this initial track.
-2.  **Initialize Tracks File:** Create the `conductor/context/tracks.md` file with the initial header and the first track:
+2.  **Initialize Tracks File:** `conductor/context/tracks.md` exists from §2.7; add the first track under its header (create the file with this content if it is somehow missing):
     ```markdown
     # Project Tracks
 
