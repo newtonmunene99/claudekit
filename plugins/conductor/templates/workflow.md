@@ -2,7 +2,7 @@
 
 ## Agent Messages During Implementation
 
-Follow **Agent Output Style** in templates/conductor-protocol.md (**
+Follow **Agent Output Style** in templates/conductor-protocol.md: lead with what now works, restate the task N/M and track, name the next todo, and skip preambles and closers.
 
 ## Guiding Principles
 
@@ -67,15 +67,17 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
    - Resume implementation
 
 8. **Commit Code Changes:**
-   - Propose a clear, concise commit message e.g., `feat(ui): Create basic HTML structure for calculator`.
-   - Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing. Suggested commands: `git add <files>` then `git commit -m "<message>"`.
+   - Propose a clear, concise commit message e.g., `feat(ui): Create basic HTML structure for calculator`. It describes behaviour only; no track, plan, or todo ids (**Artifact Reference Policy** in templates/conductor-protocol.md).
+   - **Gate on exit codes, not output.** Every configured test, lint, and typecheck command must exit 0 before the commit runs. Chain them so a failure stops the commit (`<test> && <lint> && git commit ...`); never decide by grepping output, since a pipeline that echoes "no FAIL" lets a failing commit through.
+   - **Stage exactly the todo's files.** Use `git add <files>` with the todo's `files` list, never `git add -A` or `git add .`. Before committing, run `git status --porcelain` and stop on anything unexpected, especially secret-looking paths (`.env*`, `*.pem`, `*credentials*`, `*secret*`).
+   - Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing.
 
 9. **Attach Task Summary with Git Notes:**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%H"`). Skip if no commit was made.
-   - **Step 9.2: Draft Note Content:** Create a detailed summary for the completed task. This should include the task name, a summary of changes, a list of all created/modified files, and the core "why" for the change.
-   - **Step 9.3: Attach Note:** Follow the **Git Write Policy** in templates/conductor-protocol.md before running:
+   - **Step 9.2: Draft Note Content:** Create a detailed summary for the completed task. This should include what the task delivered in plain words, a summary of changes, a list of all created/modified files, and the core "why" for the change. No track, plan, or todo ids (**Artifact Reference Policy**).
+   - **Step 9.3: Attach Note:** Write the note to a temporary file first so backticks and quotes survive the shell, then follow the **Git Write Policy** in templates/conductor-protocol.md before running:
      ```bash
-     git notes add -m "<note content>" <commit_hash>
+     git notes add -F <note-file> <commit_hash>
      ```
 
 10. **Get and Record Task Commit SHA:**
@@ -157,7 +159,7 @@ Use this protocol when tests fail, behavior is unexpected, or a fix attempt did 
 
 7.  **Attach Auditable Verification Report using Git Notes:**
     -   **Step 7.1: Draft Note Content:** Create a detailed verification report including the automated test command, the manual verification steps, and the user's confirmation.
-    -   **Step 7.2: Attach Note:** Follow the **Git Write Policy** in templates/conductor-protocol.md before running `git notes add` on the checkpoint commit.
+    -   **Step 7.2: Attach Note:** Follow the **Git Write Policy** in templates/conductor-protocol.md before running `git notes add -F <note-file>` on the checkpoint commit.
 
 8.  **Get and Record Phase Checkpoint SHA:**
     -   **Step 8.1: Get Commit Hash:** Obtain the hash of the *just-created checkpoint commit* (`git log -1 --format="%H"`). Skip if no checkpoint commit was made.
@@ -182,6 +184,14 @@ Before marking any task complete, verify:
 - [ ] Works correctly on mobile (if applicable)
 - [ ] Documentation updated if needed
 - [ ] No security vulnerabilities introduced
+
+## Agent Skills
+
+Installed skills this project uses, and when to load them. Setup fills this in; edit it freely.
+
+| Skill | Load when |
+| ----- | --------- |
+| _(none yet)_ | |
 
 ## Development Commands
 

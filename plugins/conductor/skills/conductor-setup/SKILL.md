@@ -277,7 +277,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         -   **Interaction Flow:** Wait for the user's response, then proceed to the next step.
 
 4.  **Draft the Document:** Once the dialogue is complete (or "Autogenerate" was selected), generate the content for `product-guidelines.md`.
-    -   **If user chose "Autogenerate":** Use your best judgment to infer standard, high-quality guidelines suitable for the project type. Include an **Agent Communication** section: action-first responses, numbered steps, restated progress each turn, no preamble/closers (align with **
+    -   **If user chose "Autogenerate":** Use your best judgment to infer standard, high-quality guidelines suitable for the project type. Include an **Agent Communication** section: action-first responses, numbered steps, restated progress each turn, no preamble/closers (align with **Agent Output Style** in templates/conductor-protocol.md).
     -   **If user chose "Interactive":** Use the specific answers provided. The source of truth is **only the user's selected answer(s)**. You are encouraged to expand on these choices to create a polished output.
 5.  **User Confirmation Loop:**
     -   **Ask for Approval:** Use the **User Prompt Protocol** to request confirmation. You MUST embed the drafted content directly into the `question` field so the user can review it in context.
@@ -440,6 +440,15 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 4.  **Action:** Update `conductor/context/workflow.md` based on all user answers from both steps.
 
+### 2.6 Select Agent Skills (Interactive)
+1.  **Find candidates:** From the skills and MCP tools available in this session, pick the ones that fit the **Tech Stack** and project type: language engineering guides, code review, documentation, complexity, security, framework-specific skills. Exclude Conductor's own skills. Recommend at most 8.
+2.  **If none fit:** announce "No installed skills match this stack; skipping Agent Skills." and continue to §2.7.
+3.  **Ask:** Use the **User Prompt Protocol**, one `multiSelect: true` question per group of up to 4 skills, recommended ones first:
+    - **header:** "Agent Skills"
+    - **question:** "Which of these installed skills should Conductor load while working on this project?"
+    - **options:** one per skill; description = when it would be used (e.g. "`go-engineering`: when writing or reviewing Go code").
+4.  **Write:** Record the chosen skills in the **Agent Skills** section of `conductor/context/workflow.md` as a table: skill, when to load it. Implement and review load a listed skill when its trigger applies.
+5.  **Continue:** Immediately proceed to the next section.
 
 ### 2.7 Finalization
 1.  **Generate Index File:**

@@ -93,7 +93,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 1.  **Load Project Context:** Read and understand the content of the project documents (**Product Definition**, **Tech Stack**, etc.) resolved via the **Universal File Resolution Protocol**.
 2.  **Get Track Description & Enter Plan Mode:**
     *   **If `{{args}}` is empty:**
-        1.         2. Ask the user using the **User Prompt Protocol** (do not repeat the question in the chat):
+        1. Ask the user using the **User Prompt Protocol** (do not repeat the question in the chat):
             - **questions:**
                 - **header:** "Description"
                 - **type:** "text"
