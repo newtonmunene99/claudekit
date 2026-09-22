@@ -119,7 +119,7 @@ For each track:
 2. Append to `tracks.md` under programme header
 3. Decision track: scaffold OKF knowledge bundle + decisions index + log entries
 
-Suggested commit: `chore(conductor): Add remediation programme '<programme_id>'`
+Commit only when **Conductor files** is `committed` in **Working Agreements**: `conductor(track): Add programme '<programme_id>'`. An OKF knowledge scaffold outside `conductor/` is committed in either mode.
 
 ## Implement and status
 
