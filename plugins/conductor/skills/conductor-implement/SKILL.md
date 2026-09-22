@@ -173,7 +173,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
            - **On any failure:** Apply the **Failure Policy** row; a failed todo never discards passing sibling work.
     d. **Git Isolation (once per track):** After sync-in-progress is satisfied and **before** any implementation todo or other Git write, follow the **Git Isolation Protocol** in templates/conductor-protocol.md (it applies **Branch** from **Working Agreements** without asking when set). On a resumed `[~]` track whose `metadata.json` records `git.branch`, switch to or stay on that branch instead of asking again. Set `git_isolation_done` after completing. Reset `git_isolation_done = false` when starting a new track via §5.0 continue options. Also run after step 3 legacy sync if the plan has no sync-in-progress todo.
 
-5.  **Legacy Finalize Fallback (only when the plan has no `conductor-sync-complete` todo, or it remains pending after the loop):**
+5.  **Legacy Finalize Fallback (only when the plan has no `conductor-sync-complete` todo, and every todo is `completed` or `deferred`):**
     -   Update **Tracks Registry** `[~]` → `[x]` and metadata `completed` if not already done.
     -   Commit Conductor files only when **Conductor files** is `committed` (**Git Write Policy**).
     -   Announce track completion.
@@ -259,8 +259,8 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 2.  **Compute next tracks:** Apply **Eligible Tracks Protocol** in templates/conductor-protocol.md **before** prompting. Record eligible `<track_id>` + description list; note **parallel-ready** (∥) when multiple share lowest `order`.
 
-2b. **Finish the branch** (only when the track ran on a feature branch or worktree, per `metadata.json` `git`, and **Commits** is `agent`):
-    1. Run the **Artifact Reference Policy** check over `git diff <base>..HEAD` and fix any hit first.
+2b. **Finish the branch** (only when the track ran on a feature branch or worktree, per `metadata.json` `git`, and **Commits** is `agent`). **Run it after step 4 has handled the user's choice**, and after any review that choice started has finished, so review fixes land on the branch before it merges. Skip it for **Delete**, and for **Skip** unless the user asks:
+    1. Run the **Artifact Reference Policy** check over `git diff <base>..HEAD -- . ':!conductor' ':!.gitignore'` and fix any hit first.
     2. Use the **User Prompt Protocol**, header "Branch": **Merge into `<base>`** (fast-forward when possible; Recommended when the repo has no PR workflow), **Open a pull request** (when a remote and `gh` or the host CLI exist), **Leave the branch**.
     3. After a merge or PR, offer the follow-ups in **one** prompt (`multiSelect: true`): **Push `<base>`**, **Push git notes** (`git push origin refs/notes/commits`, so the per-task audit trail reaches the remote), **Delete the track branch**, and **Tag a release** only when the repo already tags releases (suggest the next tag from `git tag --sort=-v:refname`).
     4. None of these are covered by standing approval: each listed command is shown and approved in that prompt (**Git Write Policy**).

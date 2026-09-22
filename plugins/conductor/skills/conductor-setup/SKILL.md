@@ -405,25 +405,19 @@ Before §2.1, use the **User Prompt Protocol** once:
 2.  **Determine Mode:** Use the **User Prompt Protocol** to let the user choose their preferred workflow.
     - **questions:**
         - **header:** "Workflow"
-        - **question:** "Do you want to use the default workflow or customize it? The default includes >80% test coverage and per-task commits."
+        - **question:** "Do you want to use the default workflow or customize it? The default includes >80% test coverage and git notes for task summaries."
         - **type:** "choice"
         - **options:**
             - Label: "Default", Description: "Use the standard Conductor workflow."
-            - Label: "Customize", Description: "I want to adjust coverage requirements and commit frequency."
+            - Label: "Customize", Description: "I want to adjust the coverage target and where task summaries go."
 
 3.  **Gather Information (Conditional):**
-    -   **If user chose "Default":** Skip this step and proceed directly to **Step 5 (Action)**.
+    -   **If user chose "Default":** Skip this step and proceed directly to **Step 4 (Action)**.
     -   **If user chose "Customize":**
         a. **Initial Batch:** Use a single **User Prompt Protocol** tool call to gather primary customizations:
             - **questions:**
                 - **header:** "Coverage"
                 - **question:** "The default required test code coverage is >80%. What is your preferred percentage?" (type: "text", placeholder: "e.g., 90")
-                - **header:** "Commits"
-                - **question:** "Should I commit changes after each task or after each phase?"
-                - **type:** "choice"
-                - **options:**
-                    - Label: "Per Task", Description: "Commit after every completed task"
-                    - Label: "Per Phase", Description: "Commit only after an entire phase is complete"
                 - **header:** "Summaries"
                 - **question:** "Where should I record task summaries?"
                 - **type:** "choice"
@@ -437,8 +431,9 @@ Before §2.1, use the **User Prompt Protocol** once:
                 - **question:**
                     Based on your answers, I will configure the workflow with:
                     - Test Coverage: <User Answer 1>%
-                    - Commit Frequency: <User Answer 2>
-                    - Summary Storage: <User Answer 3>
+                    - Summary Storage: <User Answer 2>
+
+                    (Commits and branches are set in Working Agreements next.)
 
                     Is there anything else you'd like to change or add to the workflow? (Leave blank to finish or type your additional requirements).
 
@@ -450,14 +445,14 @@ Before §2.1, use the **User Prompt Protocol** once:
     - **Verification runtime:** say how the product is run for hand checks (app, CLI, local server, or the provider's test harness).
 
 5.  **Working Agreements (always, Default or Customize):** These answers stop Conductor re-asking the same questions on every track.
-    a. **Detect first:** `git check-ignore -q conductor/context/index.md` exits 0 → **Conductor files** is `local`; do not ask. For **Red commits**, use `never` for compiled languages, or when history shows no commits with failing tests; otherwise `never` too unless the user says so.
+    a. **Detect first:** `git check-ignore -q conductor/context/index.md` exits 0 → **Conductor files** is `local`; do not ask.
     b. **Ask the rest in ONE User Prompt Protocol call** (skip any question already answered by detection or by the user earlier in this session):
         - **header:** "Conductor files" · **question:** "Should Conductor's files (`conductor/`) be committed, or kept local and gitignored?" · **options:** "Keep local (gitignored)", "Commit them"
         - **header:** "Commits" · **question:** "How should commits work during implementation?" · **options:** "I commit each todo, no prompts (Recommended): this answer is the approval; push, merge, and tags still ask", "I commit each todo, ask once per track", "I commit, ask every time", "You commit: I hand you messages at each phase"
         - **header:** "Branch" · **question:** "Where should track work happen?" · **options:** "Current branch", "Feature branch per track", "Worktree per track", "Ask at each track"
         - **header:** "Autonomy" · **question:** "How far should implement run before stopping?" · **options:** "Until you're needed (Recommended): stop only for a hand check, an escalation, or a decision", "Pause after every phase"
     c. **Write** the answers into the **Working Agreements** table in `conductor/context/workflow.md` (`Commits`/`Commit approval`: agent+standing, agent+track, agent+each, or user). Leave **Manual verification** `user-visible`, **Verifier** `per-phase`, and describe **Verification runtime** from the tech stack when it is obvious (e.g. "You run `wails3 dev` in your own terminal"); otherwise leave it for the first hand check to fill in.
-    d. **Conductor files `local`:** ensure `.gitignore` contains a `conductor/` line (append it if missing). This is a file edit, not a git write.
+    d. **Conductor files `local`:** ensure `.gitignore` contains a `conductor/` line (append it if missing). This is a file edit, not a git write. If `conductor/` files are already tracked (an upgrade of a project that used to commit them), `.gitignore` alone does not untrack them: offer `git rm -r --cached conductor/` under the **Git Write Policy**, so they stop showing up in every `git status`.
 
 ### 2.6 Select Agent Skills (Interactive)
 1.  **Find candidates:** From the skills and MCP tools available in this session, pick the ones that fit the **Tech Stack** and project type: language engineering guides, code review, documentation, complexity, security, framework-specific skills. Exclude Conductor's own skills. Recommend at most 8.
@@ -603,9 +598,8 @@ Before §2.1, use the **User Prompt Protocol** once:
             - **CRITICAL:** Each todo must have `id`, `content`, and `status: pending`.
             - **CRITICAL:** The plan structure MUST adhere to `conductor/context/workflow.md` (TDD: one todo per behaviour, carrying its own failing test and landing as one green commit; `kind: refactor` for structure-only todos. See **One todo, one green commit** in the Workflow).
             - **CRITICAL: Mandatory sync bookends.** First todo MUST be `conductor-sync-in-progress`; last todo MUST be `conductor-sync-complete`. Do NOT inject git-isolation todos unless the user explicitly requested one.
-            - **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`.
-            - **CRITICAL: Plan self-review** per the Plan Authoring Guide before writing the file.
-            - **CRITICAL: Path verification** per the Plan Authoring Guide Path verification checklist before writing the file. Halt on unresolved paths.
+            - **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `id: verify-p<N>`, `phase: <N>`, `blocked_by` listing the phase's other todos, `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`. A plan without phases is one phase and gets one such todo before `conductor-sync-complete`. The script also holds a verify todo back until the rest of its phase is done.
+            - **Drafts live on disk:** generate the Track ID (step c.i) first, write the spec and plan drafts to their final paths, then run the plan self-review and `conductor_state.py verify-paths <plan> --create-ok` against the written plan. Fix what they report before §3.4. Halt on unresolved paths.
     c. **Create Track Artifacts:**
         i. **Generate and Store Track ID:** Create a unique Track ID from the track description using format `shortname_YYYYMMDD` and store it. You MUST use this exact same ID for all subsequent steps for this track.
         ii. **Create Single Directory:** Resolve the **Specs Directory** via the **Universal File Resolution Protocol** and create a single new directory: `conductor/specs/<track_id>/`.
@@ -645,12 +639,14 @@ Before §2.1, use the **User Prompt Protocol** once:
 ## 4.0 UPGRADE AN EXISTING PROJECT
 **PROTOCOL: Bring a project set up by an older Conductor version to current conventions without touching its tracks, specs, or plans' content.**
 
-1.  **Check:** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor`. If `clean`, announce "Conductor files are current (<plugin_version>)." and halt.
-2.  **Show and confirm once:** List the issues in plain words, at most 8 lines, then use the **User Prompt Protocol**: **Upgrade now (Recommended)** / **Not now**. On **Not now**, halt.
+**Run inline** when another command finds the project out of date (**Working Agreements Protocol** rule 4): there, "stop" means return to that command and carry on with it.
+
+1.  **Check:** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor`. If `clean`, announce "Conductor files are current (<plugin_version>)." and stop.
+2.  **Show and confirm once:** List the issues in plain words, at most 8 lines, then use the **User Prompt Protocol**: **Upgrade now (Recommended)** / **Not now**. On **Not now**, stop; do not ask again in this session (the next session asks once more).
 3.  **Mechanical repairs:** Run `conductor_state.py doctor --fix`. It moves plans left behind by old archives into their archive folders, removes identical duplicate backlog items, removes `.gitignore` advice against ignoring `conductor/`, and creates a missing `tracks.md` or `backlog.md`. Report what it changed in one line per item.
 4.  **Judgment repairs**, for each remaining issue:
     - `no_working_agreements`: run §2.5 step 5 against the existing `workflow.md` (detect first, then one prompt of up to four questions) and insert the **Working Agreements** section after **Agent Messages During Implementation**.
-    - `stale_workflow_sections`: replace **Task Workflow** and **Phase Completion Verification and Checkpointing Protocol** with the plugin template's current text. Before replacing, move any project-specific line inside them (a real command, a custom rule) into **Standing rules**, so nothing the user wrote is lost. Leave every other section as it is.
+    - `stale_workflow_sections`: replace **Agent Messages During Implementation**, **Task Workflow**, and **Phase Completion Verification and Checkpointing Protocol** with the plugin template's current text. Before replacing, move any project-specific line inside them (a real command, a custom rule) into **Standing rules**, so nothing the user wrote is lost. Leave every other section as it is.
     - `unadapted_workflow`: run §2.5 step 4b to fill Development Commands from the repo.
     - `no_agent_skills`: add the template's **Agent Skills** section, then offer §2.6.
     - `backlog_duplicates` still present: the remaining copies differ. Show each pair in one prompt and ask which wording to keep (or to merge them).

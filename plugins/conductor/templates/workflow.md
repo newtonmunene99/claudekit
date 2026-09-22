@@ -18,7 +18,6 @@ Standing answers that every Conductor command reads before asking anything. A pr
 | Manual verification | `user-visible` | `user-visible`: hand checks only for phases with something to see or click · `every-phase` · `off` |
 | Verification runtime | _(describe)_ | Who runs the app and how, e.g. "You run `task dev` in your own terminal; tell me when to restart it." |
 | Verifier | `per-phase` | `per-phase`: fresh verifier per phase, plus per todo for risky changes · `per-todo` · `off` |
-| Red commits | `never` | `never`: every commit passes its tests · `allowed`: a failing-test commit may land before its implementation |
 
 ### Standing rules
 
@@ -63,7 +62,7 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
 
 **Test quality:** Every test follows **Test Quality Rules** (`${CLAUDE_PLUGIN_ROOT}/templates/test-quality.md` in the Conductor plugin): behaviour through the public API, literal expectations, real objects or fakes before mocks, captured rather than invented fixtures, and no tautological tests. A test that would still pass with the change reverted does not count as the red step.
 
-**One todo, one green commit.** A todo carries its own red → green cycle and lands as one commit with its tests. Red is verified inside the todo, not committed on its own (unless **Red commits** is `allowed` in **Working Agreements**). Todos come in two kinds:
+**One todo, one green commit.** A todo carries its own red → green cycle and lands as one commit with its tests. Red is verified inside the todo and never committed on its own: every commit passes its tests. Todos come in two kinds:
 
 | Kind | Rule |
 | ---- | ---- |
@@ -116,7 +115,7 @@ A slice that can neither fail a test before it nor pass as a pure refactor is no
      ```
 
 10. **Get and Record Task Commit SHA:**
-    - **Step 10.1: Update Plan:** `conductor_state.py set-todo <plan> <todo_id> completed --sha <first 7 chars>` (omit `--sha` when no commit was made).
+    - **Step 10.1: Update Plan:** `conductor_state.py set-todo <plan> <todo_id> completed --sha <first 7 chars> --attempts 0` (with **Commits** `user`: `--sha uncommitted`, replaced by the real SHA at the phase checkpoint; omit `--sha` when no commit was made).
     - **Step 10.2: Do it now,** before anything else. A plan that lags behind git makes the next session redo committed work.
 
 11. **Plan commits:** Only when **Conductor files** is `committed`: plan updates are committed together at the phase checkpoint (`conductor(plan): Update progress for phase '<phase>'`), not after every todo. When `local`, there is nothing to commit.

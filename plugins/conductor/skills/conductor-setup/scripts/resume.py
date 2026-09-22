@@ -11,6 +11,7 @@ never regenerates its context or touches its tracks.
 import glob
 import json
 import os
+import re
 import sys
 
 
@@ -34,9 +35,14 @@ def determine_resumption():
   track_specs = sorted(glob.glob(os.path.join("conductor", "specs", "*", "spec.md")))
   checklist["specs"] = track_specs
 
-  # Registered tracks or any complete track spec mean setup already ran to
-  # completion once — re-running it must never touch existing tracks.
-  initialized = checklist["tracks.md"] or bool(track_specs)
+  # A registered track or any track spec means setup already ran to completion
+  # once; re-running it must never touch existing tracks. An empty registry is
+  # not enough: setup creates it during finalization, before the first track.
+  registered = False
+  if checklist["tracks.md"]:
+    with open(os.path.join(context_dir, "tracks.md"), encoding="utf-8") as fh:
+      registered = any(re.match(r"^(?:- |## )\[[ ~x]\]", line.strip()) for line in fh)
+  initialized = registered or bool(track_specs)
   setup_complete = checklist["index.md"]
 
   # Priority table from SKILL.md section 1.2 — highest match wins.

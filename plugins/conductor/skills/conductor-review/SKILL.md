@@ -63,6 +63,8 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   Announce: "Conductor is not set up. Please run `/conductor:conductor-setup` to set up the environment."
     -   Do NOT proceed to Review Protocol.
 
+3.  **Working Agreements:** Read them per the **Working Agreements Protocol** (rule 4 covers a project set up before they existed).
+
 ---
 
 ## 2.0 REVIEW PROTOCOL
@@ -131,7 +133,7 @@ Use `/conductor:conductor-programme-review` as alias entry point (same protocol)
 #### Pre-flight checks (stop if any apply)
 
 - **No diff** — `git diff` for the resolved range is empty → stop; announce nothing to review.
-- **Track already complete** — track is `[x]` and user did not ask for re-review → confirm via the **User Prompt Protocol** before continuing.
+- **Track already complete** — track is `[x]` and user did not ask for re-review → confirm via the **User Prompt Protocol** before continuing. Skip this when invoked from implement's track cleanup: that is the request.
 - **Trivial scope** — user explicitly asked to skip → stop and explain.
 
 #### Resolve the diff
@@ -375,7 +377,7 @@ Right after the report, in the same turn, write it to `conductor/reviews/<track_
 ### 3.2 Commit Review Changes
 **PROTOCOL: Offer to commit review-related changes and track them in the plan when the user approves.**
 
-1.  **Check for Changes:** Use `git status --porcelain` to check for any uncommitted changes (staged or unstaged) in the repository.
+1.  **Check for Changes:** Use `git status --porcelain -- . ':!conductor'` to check for uncommitted code changes. Conductor's own files (the review record, the plan) do not count.
 2.  **Condition for Action:**
     -   If NO changes are detected, proceed to '3.3 Track Cleanup'.
     -   If changes are detected:
@@ -394,7 +396,7 @@ Right after the report, in the same turn, write it to `conductor/reviews/<track_
                     - **question:** "I've detected uncommitted changes from the review process. Should I commit these and update the track's plan?"
                     - **type:** "yesno"
             ii.  **If Yes:**
-                 - **Update Plan:** Add a todo to the Conductor plan file frontmatter:
+                 - **Update Plan:** Add a todo to the Conductor plan file frontmatter, **before** `conductor-sync-complete` so the bookends stay first and last:
                    ```yaml
                    - id: review-fixes
                      content: "Apply review suggestions"
@@ -402,14 +404,14 @@ Right after the report, in the same turn, write it to `conductor/reviews/<track_
                    ```
                  - **Commit Code:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing code changes (not the plan file). The message describes the behaviour fixed (e.g. `fix(parser): Handle empty frontmatter`); never name the review, track, plan, or Conductor (see **Artifact Reference Policy** in templates/conductor-protocol.md).
                  - **Record SHA:** Set todo `status: completed` and append commit SHA to `content`.
-                 - **Commit Plan Update:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing the plan file. Suggested message: `conductor(plan): Mark review fixes complete`.
+                 - **Commit Plan Update:** Only when **Conductor files** is `committed`: follow the **Git Write Policy** before staging and committing the plan file and the review record (`conductor(plan): Mark review fixes complete`).
                  - **Announce Success:** "Review changes committed and tracked in the plan."
             iii. **If No:** Skip the commit and plan update. Proceed to '3.3 Track Cleanup'.
 
 ### 3.3 Track Cleanup
 **PROTOCOL: Offer to archive or delete the reviewed track.**
 
-1.  **Context Check:** If you are NOT reviewing a specific track (e.g., just reviewing current changes without a track context), SKIP this entire section.
+1.  **Context Check:** If you are NOT reviewing a specific track (e.g., just reviewing current changes without a track context), SKIP this entire section. Also skip it when invoked from implement's track cleanup: implement returns to its own cleanup prompt.
 
 1.5 **Pre-Archive Checklist** (when track context exists):
     - Verdict is **Approve** or **Approve with nits**, **or** (**Request changes** with `high_waiver_granted = true` and no open **Critical**)

@@ -113,7 +113,7 @@ class PlanDeferredVerification(unittest.TestCase):
     self.assertEqual(code, 0)
     self.assertEqual(out["next"]["id"], "build-toolbar")
     self.assertEqual(out["counts"]["deferred"], 1)
-    self.assertEqual(out["deferred"], ["verify-p1"])
+    self.assertEqual(out["deferred"], [{"id": "verify-p1", "phase": "P1"}])
 
 
 class ArchiveTrack(unittest.TestCase):
@@ -189,6 +189,67 @@ class ArchiveTrack(unittest.TestCase):
     self.assertEqual(out["archivable"], ["grid_20260101"])
 
 
+class PlanPhases(unittest.TestCase):
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+    self.p.write("conductor/plans/g_abc.plan.md", """
+        ---
+        name: G
+        todos:
+          - id: build-rows
+            status: blocked
+            blocked_on: "upstream PR"
+            phase: P1
+          - id: build-sort
+            status: pending
+            phase: P1
+          - id: verify-p1
+            status: pending
+            phase: P1
+          - id: build-toolbar
+            status: pending
+            phase: P2
+        ---
+
+        - **Goal:** grid
+        - **Architecture:** svelte
+
+        ## Phases
+        - **P1 rows** — rows
+        - **P2 toolbar** — toolbar
+        """)
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def test_phases_come_from_todos_not_every_bold_bullet(self):
+    out, _ = self.p.run("plan", "conductor/plans/g_abc.plan.md")
+    self.assertEqual(out["phases"], ["P1", "P2"])
+
+  def test_a_verify_todo_waits_for_the_rest_of_its_phase(self):
+    out, _ = self.p.run("plan", "conductor/plans/g_abc.plan.md")
+    self.assertEqual(out["next"]["id"], "build-sort")
+    waiting = {w["id"]: w["blocked_by"] for w in out["waiting"]}
+    self.assertEqual(waiting["verify-p1"], ["build-rows", "build-sort"])
+
+
+class TracksGit(unittest.TestCase):
+
+  def test_tracks_carry_the_recorded_git_branch(self):
+    with tempfile.TemporaryDirectory() as root:
+      p = Project(root)
+      p.write("conductor/context/tracks.md", """
+          - [x] **Track: Grid**
+            *Spec: [../specs/grid_20260101/spec.md](../specs/grid_20260101/spec.md)*
+          """)
+      p.write("conductor/specs/grid_20260101/metadata.json",
+              '{"git": {"branch": "feature/grid_20260101", "base": "main"}}')
+      out, _ = p.run("tracks")
+    self.assertEqual(out["tracks"][0]["git"], {"branch": "feature/grid_20260101", "base": "main"})
+
+
 class Backlog(unittest.TestCase):
 
   def setUp(self):
@@ -251,6 +312,13 @@ class Backlog(unittest.TestCase):
         """)
     out, _ = self.p.run("backlog")
     self.assertEqual([i["status"] for i in out["items"]], ["open", "decided"])
+
+  def test_a_decided_item_is_not_reported_as_done(self):
+    self.p.write("conductor/context/backlog.md", """
+        - [x] **Live graph view** — decided 2026-09-08: not building; reopen if upstream ships events.
+        """)
+    out, _ = self.p.run("backlog")
+    self.assertEqual(out["items"][0]["status"], "decided")
 
   def test_reports_duplicated_items(self):
     self.p.write("conductor/context/backlog.md", """
@@ -329,6 +397,19 @@ class WriteSubcommands(unittest.TestCase):
     plan = self.read(self.PLAN)
     self.assertEqual(plan.count("status:"), 1)
     self.assertIn("status: in_progress", plan)
+
+  def test_set_todo_blocked_requires_a_reason(self):
+    out, code = self.p.run("set-todo", self.PLAN, "grid-sort", "blocked")
+    self.assertEqual(code, 1)
+    self.assertIn("--on", out["error"])
+
+  def test_set_todo_sha_replaces_an_uncommitted_marker_and_sets_attempts(self):
+    self.p.run("set-todo", self.PLAN, "grid-rows", "completed", "--sha", "uncommitted")
+    self.p.run("set-todo", self.PLAN, "grid-rows", "completed", "--sha", "4f9c2e1", "--attempts", "0")
+    plan = self.read(self.PLAN)
+    self.assertIn('content: "Render one row per product (4f9c2e1)"', plan)
+    self.assertNotIn("uncommitted", plan)
+    self.assertIn("attempts: 0", plan)
 
   def test_set_todo_rejects_an_unknown_todo(self):
     out, code = self.p.run("set-todo", self.PLAN, "grid-typo", "completed")
@@ -421,11 +502,20 @@ class SetupResume(unittest.TestCase):
     with tempfile.TemporaryDirectory() as root:
       p = Project(root)
       p.write("conductor/context/index.md", "# Project Context\n")
-      p.write("conductor/context/tracks.md", "# Tracks\n")
+      p.write("conductor/context/tracks.md", "# Tracks\n\n- [ ] **Track: Grid**\n")
       out, code = p.run(script=RESUME)
     self.assertEqual(code, 0)
     self.assertTrue(out["initialized"])
     self.assertEqual(out["target_section"], "4.0")
+
+  def test_an_empty_registry_from_finalization_still_resumes_at_the_first_track(self):
+    with tempfile.TemporaryDirectory() as root:
+      p = Project(root)
+      p.write("conductor/context/index.md", "# Project Context\n")
+      p.write("conductor/context/tracks.md", "# Project Tracks\n\n---\n")
+      out, _ = p.run(script=RESUME)
+    self.assertFalse(out["initialized"])
+    self.assertEqual(out["target_section"], "3.0")
 
 
 if __name__ == "__main__":
