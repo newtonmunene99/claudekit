@@ -161,6 +161,8 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
 
 1.  **State Your Goal:** One line: "Drafting `spec.md` from the approved design."
 
+    **Drafts live on disk.** Run §2.5 steps 1–2 now (name check, track id). Write each draft straight to its final path (`conductor/specs/<track_id>/spec.md`, then the plan file) and review it there. The registry entry, metadata, and index are written only after approval (§2.5), so an abandoned draft never shows up as a track. Printing a whole spec or plan in chat and then writing it again doubles the cost and buries the decision.
+
 2.  **Questioning Phase (if gaps remain):** Ask follow-up questions using the **User Prompt Protocol**. You may batch up to 4 related questions in a single tool call. Tailor questions based on the track type (Feature or Other).
     *   **CRITICAL:** Wait for the user's response after each **User Prompt Protocol** tool call.
     *   **General Guidelines:**
@@ -203,15 +205,15 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
     - **Ambiguity check:** Requirements interpretable only one way; make implicit choices explicit.
 
 5.  **User Confirmation:**
-    -   **Ask for Approval:** Use the **User Prompt Protocol** to request confirmation. You MUST embed the drafted content directly into the `question` field so the user can review it in context.
+    -   **Ask for Approval:** Use the **User Prompt Protocol** with the draft's path and a summary: the goal in one line, each functional requirement in one line, the number of acceptance criteria, and what is out of scope. Embed the full text only when it is under ~80 lines. On **Revise**, edit the file and show only what changed.
         - **questions:**
             - **header:** "Confirm Spec"
             - **question:**
-                Please review the drafted Specification below. Does this accurately capture the requirements?
+                Spec draft: `conductor/specs/<track_id>/spec.md`. Does this capture the requirements?
 
                 ---
 
-                <Insert Drafted spec.md Content Here>
+                <Summary, or the full spec when under ~80 lines>
             - **type:** "choice"
             - **multiSelect:** false
             - **options:**
@@ -238,15 +240,15 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
     *   **CRITICAL: Plan self-review by a fresh verifier** per the **Independent Verification Protocol** in templates/conductor-protocol.md: dispatch a read-only subagent with the plan, the spec, the self-review checklist, and the `verify-paths` output. Fix rejected items; after 2 rounds escalate to the user. Do not grade your own draft.
 
 4.  **User Confirmation:**
-    -   **Ask for Approval:** Use the **User Prompt Protocol** to request confirmation. You MUST embed the drafted content directly into the `question` field so the user can review it in context.
+    -   **Ask for Approval:** Use the **User Prompt Protocol** with the plan's path and a summary: the phase map, every todo as `id — content` (grouped by phase), probe and prerequisite todos called out, and the verifier and `verify-paths` results in one line each. On **Revise**, edit the file and show only what changed.
         - **questions:**
             - **header:** "Confirm Plan"
             - **question:**
-                Please review the drafted Conductor plan file below. Does this look correct and cover all the necessary steps?
+                Plan draft: `conductor/plans/<slug>_<shortid>.plan.md`. Does this cover the work?
 
                 ---
 
-                <Insert Drafted Conductor plan file Content Here>
+                <Phase map and todo list>
             - **type:** "choice"
             - **multiSelect:** false
             - **options:**
@@ -304,9 +306,9 @@ Use `templates/knowledge/decision-concept.md` for the OKF deliverable shape (`ty
 
 ### 2.5 Create Track Artifacts and Update Main Plan
 
-1.  **Check for existing track name:** Before generating a new Track ID, resolve the **Specs Directory** using the **Universal File Resolution Protocol**. List all existing track directories in that resolved path. Extract the short names from these track IDs (e.g., ``shortname_YYYYMMDD`` -> `shortname`). If the proposed short name for the new track (derived from the initial description) matches an existing short name, halt the `newTrack` creation. Explain that a track with that name already exists and suggest choosing a different name or resuming the existing track.
+1.  **Check for existing track name** (done at the start of §2.3; skip if so): Before generating a new Track ID, resolve the **Specs Directory** using the **Universal File Resolution Protocol**. List all existing track directories in that resolved path. Extract the short names from these track IDs (e.g., ``shortname_YYYYMMDD`` -> `shortname`). If the proposed short name for the new track (derived from the initial description) matches an existing short name, halt the `newTrack` creation. Explain that a track with that name already exists and suggest choosing a different name or resuming the existing track.
 2.  **Generate Track ID:** Create a unique Track ID (e.g., ``shortname_YYYYMMDD``).
-3.  **Create Directory:** Create a new directory for the tracks: `conductor/specs/<track_id>/`.
+3.  **Create Directory:** `conductor/specs/<track_id>/` (already created when the spec draft was written in §2.3).
 4.  **Create `metadata.json`:** Create a metadata file at `conductor/specs/<track_id>/metadata.json` with content like:
     ```json
     {
@@ -326,8 +328,7 @@ Use `templates/knowledge/decision-concept.md` for the OKF deliverable shape (`ty
     ```
     *   Populate fields with actual values. Use the current timestamp. Omit programme fields for single tracks.
 5.  **Write Files:**
-    *   Write the confirmed specification content to `conductor/specs/<track_id>/spec.md`.
-    *   Write the confirmed plan content to `conductor/plans/<slug>_<shortid>.plan.md`.
+    *   The approved spec and plan are already on disk from §2.3–2.4.
     *   Write the index file to `conductor/specs/<track_id>/index.md` with content:
         ```markdown
         # Track <track_id> Context
