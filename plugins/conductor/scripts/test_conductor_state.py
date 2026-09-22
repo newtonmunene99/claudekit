@@ -235,6 +235,26 @@ class PlanPhases(unittest.TestCase):
     self.assertEqual(waiting["verify-p1"], ["build-rows", "build-sort"])
 
 
+  def test_a_verify_todo_does_not_wait_on_the_closing_bookend(self):
+    self.p.write("conductor/plans/h_abc.plan.md", """
+        ---
+        name: H
+        todos:
+          - id: build-rows
+            status: completed
+            phase: P1
+          - id: verify-p1
+            status: pending
+            phase: P1
+          - id: conductor-sync-complete
+            status: pending
+            phase: P1
+        ---
+        """)
+    out, _ = self.p.run("plan", "conductor/plans/h_abc.plan.md")
+    self.assertEqual(out["next"]["id"], "verify-p1")
+
+
 class TracksGit(unittest.TestCase):
 
   def test_tracks_carry_the_recorded_git_branch(self):
