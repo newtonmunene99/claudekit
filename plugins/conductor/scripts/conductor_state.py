@@ -31,7 +31,8 @@ PLAIN_DESC = re.compile(r"^Track:\s*(?P<desc>.+?)\s*(?:—\s*_.*_\s*)?$")
 # Archived tracks may stay in the registry as a ledger line linking into archive/.
 SPEC_LINK = re.compile(r"\(\.\./(?:specs|archive)/(?P<id>[^/)]+)/(?:spec\.md|index\.md)\)")
 PLAN_LINK = re.compile(r"\((?P<path>\.\./plans/[^)]+\.plan\.md)\)")
-TERMINAL = {"completed"}
+# A deferred hand check never blocks later work; status still reports it.
+TERMINAL = {"completed", "deferred"}
 
 
 # --- frontmatter -------------------------------------------------------------
@@ -231,7 +232,7 @@ def cmd_plan(args):
   by_id = {t["id"]: t for t in todos}
   done = {t["id"] for t in todos if t.get("status") in TERMINAL}
 
-  counts = {"pending": 0, "in_progress": 0, "completed": 0}
+  counts = {"pending": 0, "in_progress": 0, "completed": 0, "deferred": 0}
   for t in todos:
     counts[t.get("status") if t.get("status") in counts else "pending"] += 1
 
@@ -295,6 +296,7 @@ def cmd_plan(args):
       "counts": counts,
       "total": len(todos),
       "in_progress": [t["id"] for t in todos if t.get("status") == "in_progress"],
+      "deferred": [t["id"] for t in todos if t.get("status") == "deferred"],
       "next": next_todo,
       "ready": ready,
       "waiting": waiting,

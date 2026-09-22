@@ -25,8 +25,8 @@ Every plan frontmatter MUST include these bookend todos (in addition to phase ve
 
 | Order | id | content (summary) |
 | ----- | --- | ----------------- |
-| **First** | `conductor-sync-in-progress` | Mark track `[~]` in `tracks.md`, set `metadata.json` `status` to `in_progress`, update `updated_at`. Git Write Policy applies. |
-| **Last** | `conductor-sync-complete` | Mark track `[x]` in `tracks.md`, set `metadata.json` `status` to `completed`, update `updated_at`, commit Conductor files. Git Write Policy applies. |
+| **First** | `conductor-sync-in-progress` | Mark track `[~]` in `tracks.md`, set `metadata.json` `status` to `in_progress`, update `updated_at`. Commit only when **Conductor files** is `committed`. |
+| **Last** | `conductor-sync-complete` | Mark track `[x]` in `tracks.md`, set `metadata.json` `status` to `completed`, update `updated_at`, then run doc sync and track cleanup. Commit Conductor files only when **Conductor files** is `committed`. |
 
 **Do NOT inject** feature-branch, worktree, or other git-isolation todos by default. Git workflow is chosen at implementation start via the **Git Isolation Protocol** in templates/conductor-protocol.md — unless the user explicitly asked to bake a git workflow into the plan during new-track planning.
 
@@ -44,7 +44,7 @@ todos:
     content: "Conductor — Mark track in progress (tracks.md [~], metadata.json in_progress)"
     status: pending
   - id: example-task
-    content: "Write failing tests for example feature"
+    content: "Reject expired refresh tokens"
     status: pending
   - id: conductor-sync-complete
     content: "Conductor — Mark track complete (tracks.md [x], metadata.json completed)"
@@ -59,8 +59,9 @@ Claude Code may ignore unknown fields — they remain for agent protocol and pro
 
 ```yaml
 - id: context-parity-impl
-  content: "Implement context parity checks"
+  content: "Report context parity mismatches"
   status: pending
+  kind: refactor        # optional; omit for behaviour todos
   phase: C4
   blocked_by: [metric-client-seam]
   files: [pkg/parity/parity.go, pkg/parity/parity_test.go]
@@ -72,7 +73,7 @@ Claude Code may ignore unknown fields — they remain for agent protocol and pro
 Frontmatter order is the **default** execution order, but `/conductor:conductor-implement` runs any todo whose `blocked_by` are all completed. Declare edges deliberately:
 
 - **Add `blocked_by`** only when the todo **reads the output** of another todo (a type, a seam, a fixture, a file the other creates). "It comes after" is not a dependency.
-- **Omit `blocked_by`** for independent work so it can run in parallel. Two "write failing tests" todos in different packages usually have no edge.
+- **Omit `blocked_by`** for independent work so it can run in parallel. Two behaviour todos in different packages usually have no edge.
 - **Always add `files`**: the exact paths the todo creates or modifies. The implement loop only parallelises todos whose `files` are pairwise disjoint; a todo without `files` runs alone.
 - Sync bookends are implicit edges: nothing runs before `conductor-sync-in-progress`, and `conductor-sync-complete` waits for everything.
 
@@ -82,9 +83,11 @@ Sanity check: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <
 
 Each frontmatter todo is the smallest unit that:
 
-- Has its own test cycle (when workflow uses TDD)
+- Lands as **one green commit** with its own tests (see **One todo, one green commit** in the Workflow)
 - Produces an independently verifiable deliverable
-- Aligns with the project's **Workflow** (e.g., separate "Write Tests" and "Implement" todos when TDD is required)
+- Has a test that fails before it and passes after it, **or** is a pure refactor (`kind: refactor`) that keeps existing tests green
+
+Never split "write failing tests" and "implement" into separate todos: the red step happens inside the todo. A partial slice that no test can observe yet folds into the todo whose test first observes it. A todo that changes a signature owns every call site, including generated bindings and the other side of any seam.
 
 Fold setup, configuration, and scaffolding into the todo whose deliverable needs them. Split only where a reviewer could reject one task while approving its neighbor.
 
@@ -219,6 +222,7 @@ After drafting the complete plan, hand this checklist to a **fresh verifier** pe
 8. **Test constraints:** No unbounded sleeps or undeclared network dependencies.
 9. **Namespace:** Single owner for shared ID registries when programme spans tracks.
 10. **Edges:** Every `blocked_by` names a real data dependency; every implementation todo declares `files`; `conductor_state.py plan` reports no `unknown_blockers`.
+11. **Green commits:** No todo is only "write failing tests" or only "implement". Each behaviour todo names the test that fails before it; each `kind: refactor` todo names the existing tests that must stay green.
 
 ## Direct plan execution
 

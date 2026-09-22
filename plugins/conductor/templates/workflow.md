@@ -4,6 +4,28 @@
 
 Follow **Agent Output Style** in templates/conductor-protocol.md: lead with what now works, restate the task N/M and track, name the next todo, and skip preambles and closers.
 
+## Working Agreements
+
+Standing answers that every Conductor command reads before asking anything. A prompt whose answer is recorded here is skipped, and a recorded git answer counts as the user's approval under the **Git Write Policy**. Edit freely. See **Working Agreements Protocol** in templates/conductor-protocol.md.
+
+| Agreement | Value | Options |
+| --------- | ----- | ------- |
+| Conductor files | `local` | `local`: `conductor/` is gitignored and never committed · `committed`: Conductor files are committed |
+| Commits | `agent` | `agent`: Claude commits each todo · `user`: Claude never runs git writes; it hands you commit messages at each phase checkpoint |
+| Commit approval | `standing` | `standing`: this table is the approval, so todo commits and notes run without asking · `track`: one approval at track start · `each`: ask before every git write |
+| Branch | `current` | `current` · `feature` (`feature/<track_id>`) · `worktree` · `ask`: ask at each track start |
+| Autonomy | `until-needed` | `until-needed`: run todos and phases back to back, stopping only for a hand check, an escalation, or a decision · `phase`: also pause after every phase · `todo`: pause after every todo |
+| Manual verification | `user-visible` | `user-visible`: hand checks only for phases with something to see or click · `every-phase` · `off` |
+| Verification runtime | _(describe)_ | Who runs the app and how, e.g. "You run `task dev` in your own terminal; tell me when to restart it." |
+| Verifier | `per-phase` | `per-phase`: fresh verifier per phase, plus per todo for risky changes · `per-todo` · `off` |
+| Red commits | `never` | `never`: every commit passes its tests · `allowed`: a failing-test commit may land before its implementation |
+
+### Standing rules
+
+Rules stated during work that should apply to every session, one line each. Conductor proposes additions here when you state one.
+
+- _(none yet)_
+
 ## Guiding Principles
 
 1. **The Plan is the Source of Truth:** All work must be tracked in the Conductor plan file (`conductor/plans/*.plan.md` frontmatter `todos`)
@@ -39,10 +61,19 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
 
 **Minimal implementation:** Write only enough code to pass the test. No extra features (YAGNI).
 
-3. **Write Failing Tests (Red Phase):**
-   - Create a new test file for the feature or bug fix.
-   - Write one or more unit tests that clearly define the expected behavior and acceptance criteria for the task.
-   - **CRITICAL:** Run the tests and confirm that they fail as expected. This is the "Red" phase of TDD. Do not proceed until you have failing tests.
+**One todo, one green commit.** A todo carries its own red → green cycle and lands as one commit with its tests. Red is verified inside the todo, not committed on its own (unless **Red commits** is `allowed` in **Working Agreements**). Todos come in two kinds:
+
+| Kind | Rule |
+| ---- | ---- |
+| **Behaviour** (default) | A new or changed test fails before the change and passes after it. |
+| **Refactor / prep** (`kind: refactor`) | Structure changes, behaviour does not: extracting a seam, threading a field through layers, renaming. Existing tests pass before and after; no new test is required. |
+
+A slice that can neither fail a test before it nor pass as a pure refactor is not a todo on its own. Fold it into the todo whose test first makes it observable. A todo that changes a signature owns every call site, including generated bindings and the other side of any seam.
+
+3. **Write Failing Tests (Red Phase)** *(behaviour todos)*:
+   - Add or extend tests that define the expected behaviour and acceptance criteria for the task.
+   - **CRITICAL:** Run the tests and confirm that they fail for the expected reason. This is the "Red" phase of TDD. Do not proceed until you have failing tests.
+   - **Refactor todos:** run the existing tests and confirm they pass before changing anything.
 
 4. **Implement to Pass Tests (Green Phase):**
    - Write the minimum amount of application code necessary to make the failing tests pass.
@@ -58,19 +89,19 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
    ```
    Target: >80% coverage for new code. The specific tools and commands will vary by language and framework.
 
-6b. **Independent Verification:** Before committing, run the **Independent Verification Protocol** in templates/conductor-protocol.md: a fresh subagent receives the todo, its plan section, the relevant acceptance criteria, the diff, and the test output, and returns `Approve` or `Reject`. On `Reject`, fix the numbered issues (increment the todo's `attempts`), re-verify; after 2 rejections escalate via the **User Prompt Protocol**. Skip only for `conductor-sync-*` todos and documentation-only diffs under 20 lines.
+6b. **Independent Verification (risky todos):** When **Verifier** in **Working Agreements** is `per-todo`, or the todo is risky (it changes a public API or exported symbol, touches auth, security, secrets, or data migrations, or its diff exceeds ~150 lines), run the **Independent Verification Protocol** in templates/conductor-protocol.md before committing: a fresh subagent receives the todo, its plan section, the relevant acceptance criteria, the diff, and the test output, and returns `Approve` or `Reject`. On `Reject`, fix the numbered issues (increment the todo's `attempts`), re-verify; after 2 rejections escalate via the **User Prompt Protocol**. Other todos are covered by the per-phase verifier at the phase checkpoint.
 
-7. **Document Deviations:** If implementation differs from tech stack:
+7. **Document Deviations:** If the implementation has to differ from the plan, the spec, or the tech stack:
    - **STOP** implementation
-   - Update `conductor/context/tech-stack.md` with new design
-   - Add dated note explaining the change
+   - Tech stack change: update `conductor/context/tech-stack.md` and add a dated note
+   - Design change: update the spec requirement **and** rewrite every affected pending todo in the plan (content, files, body section) in the same step, so the next session does not follow stale instructions
    - Resume implementation
 
 8. **Commit Code Changes:**
    - Propose a clear, concise commit message e.g., `feat(ui): Create basic HTML structure for calculator`. It describes behaviour only; no track, plan, or todo ids (**Artifact Reference Policy** in templates/conductor-protocol.md).
    - **Gate on exit codes, not output.** Every configured test, lint, and typecheck command must exit 0 before the commit runs. Chain them so a failure stops the commit (`<test> && <lint> && git commit ...`); never decide by grepping output, since a pipeline that echoes "no FAIL" lets a failing commit through.
    - **Stage exactly the todo's files.** Use `git add <files>` with the todo's `files` list, never `git add -A` or `git add .`. Before committing, run `git status --porcelain` and stop on anything unexpected, especially secret-looking paths (`.env*`, `*.pem`, `*credentials*`, `*secret*`).
-   - Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing.
+   - Follow **Commits** and **Commit approval** in **Working Agreements** and the **Git Write Policy**. With `Commits: user`, do not commit: record the todo as done with `(uncommitted)`, keep its file list, and hand over the commit at the phase checkpoint.
 
 9. **Attach Task Summary with Git Notes:**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%H"`). Skip if no commit was made.
@@ -82,10 +113,11 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
 
 10. **Get and Record Task Commit SHA:**
     - **Step 10.1: Update Plan:** Read the Conductor plan file, find the completed todo, set `status` to `completed`, and append the first 7 characters of the commit hash to `content` (if a commit was made; otherwise omit the SHA).
-    - **Step 10.2: Write Plan:** Write the updated content back to the plan file.
+    - **Step 10.2: Write Plan:** Write the updated content back to the plan file immediately, before anything else. A plan that lags behind git makes the next session redo committed work.
 
-11. **Commit Plan Update:**
-    - **Action:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing the modified plan file. Suggested message: `conductor(plan): Mark task 'Create user model' as complete`.
+11. **Plan commits:** Only when **Conductor files** is `committed`: plan updates are committed together at the phase checkpoint (`conductor(plan): Update progress for phase '<phase>'`), not after every todo. When `local`, there is nothing to commit.
+
+12. **Keep going:** Unless **Autonomy** says to pause here, report progress in one line and start the next todo in the same turn. See **Keep-Going Rule** in the implement skill.
 
 ### Systematic Debugging Protocol
 
@@ -112,64 +144,37 @@ Use this protocol when tests fail, behavior is unexpected, or a fix attempt did 
 1.  **Announce Protocol Start:** One line: "Phase '<name>' complete — running verification (task N/M)."
 
 2.  **Ensure Test Coverage for Phase Changes:**
-    -   **Step 2.1: Determine Phase Scope:** To identify the files changed in this phase, you must first find the starting point. Read the Conductor plan file to find the Git commit SHA of the *previous* phase's checkpoint. If no previous checkpoint exists, the scope is all changes since the first commit.
-    -   **Step 2.2: List Changed Files:** Execute `git diff --name-only <previous_checkpoint_sha> HEAD` to get a precise list of all files modified during this phase.
-    -   **Step 2.3: Verify and Create Tests:** For each file in the list:
-        -   **CRITICAL:** First, check its extension. Exclude non-code files (e.g., `.json`, `.md`, `.yaml`).
-        -   For each remaining code file, verify a corresponding test file exists.
-        -   If a test file is missing, you **must** create one. Before writing the test, **first, analyze other test files in the repository to determine the correct naming convention and testing style.** The new tests **must** validate the functionality described in this phase's todos in the Conductor plan file.
+    -   **Step 2.1: Determine Phase Scope:** Find the previous phase's checkpoint SHA in the plan body (`[checkpoint: <sha>]`). If no previous checkpoint exists, the scope starts at the track's first commit.
+    -   **Step 2.2: List Changed Files:** `git diff --name-only <previous_checkpoint_sha> HEAD`.
+    -   **Step 2.3: Verify and Create Tests:** For each changed code file (skip `.json`, `.md`, `.yaml` and other non-code files), verify a corresponding test exists. If one is missing, write it, first matching the naming and style of the repo's existing tests. New tests must validate this phase's todos.
 
 3.  **Execute Automated Tests with Proactive Debugging:**
-    -   Before execution, you **must** announce the exact shell command you will use to run the tests.
-    -   **Example Announcement:** "I will now run the automated test suite to verify the phase. **Command:** `CI=true npm test`"
-    -   Execute the announced command.
+    -   Announce the exact command in one line, then run it. Example: "Tests: `CI=true npm test`".
     -   If tests fail, follow the **Systematic Debugging Protocol** above. Use **User Prompt Protocol** for final escalation if debugging stalls after 3 fix attempts.
 
-4.  **Propose a Detailed, Actionable Manual Verification Plan:**
-    -   **CRITICAL:** To generate the plan, first analyze `conductor/context/product.md`, `conductor/context/product-guidelines.md`, and the Conductor plan file to determine the user-facing goals of the completed phase.
-    -   You **must** generate a step-by-step plan that walks the user through the verification process, including any necessary commands and specific, expected outcomes.
-    -   The plan you present to the user **must** follow this format:
+4.  **Phase verifier:** Unless **Verifier** in **Working Agreements** is `off`, run the **Independent Verification Protocol** in templates/conductor-protocol.md once for the phase: the verifier receives `git diff <previous_checkpoint_sha>..HEAD`, the phase's todos and plan sections, the acceptance criteria they serve, and the test output. It looks for gaps between todos that each looked correct alone. **On the last phase of the track**, give it the whole track diff (`git diff <track_start>..HEAD`) and every acceptance criterion, and ask it how the requirements interact: defects in these sessions sat at seams between phases that each passed. On `Reject`, append fix todos to this phase (step 7) and run them before continuing.
 
-        **For a Frontend Change:**
-        ```
-        The automated tests have passed. For manual verification, please follow these steps:
+5.  **Agent-run checks:** Run every check you can run yourself and paste the result: build the artefact, run the CLI, call the local endpoint, run `terraform plan` in the repo's test harness, and so on. Never hand the user a test, lint, or build command as "manual verification".
 
-        **Manual Verification Steps:**
-        1.  **Start the development server with the command:** `npm run dev`
-        2.  **Open your browser to:** `http://localhost:3000`
-        3.  **Confirm that you see:** The new user profile page, with the user's name and email displayed correctly.
-        ```
+6.  **Hand check (only when a person is needed):**
+    -   **Is one needed?** Follow **Manual verification** in **Working Agreements** (default `user-visible`). A hand check is needed only when the phase changed something a person has to see, click, or judge in the running product, or needs credentials or an environment you cannot reach. Otherwise say so in one line ("Nothing to check by hand this phase: <why>."), then go to step 8.
+    -   **Pre-flight:** Before presenting steps, make sure the user will test the current code: the artefact they will run was built after the phase's last commit, and no stale instance is running. State both in one line. Follow **Verification runtime** in **Working Agreements** for who launches the app; never leave a long-running process of your own behind.
+    -   **Steps:** Numbered actions in the running product and what to expect: "Click **Deploy** on the `dev` row → a toast shows the operation id." If a behaviour cannot be reached by clicking, add a temporary control for it or say how to reach it; never ask for console snippets.
+    -   **Ask in plain chat,** not through a structured prompt tool, so the user can reply with free text and screenshots: "Reply **yes**, describe what's wrong, or say **later** to defer this check."
+    -   **PAUSE** for the reply.
 
-        **For a Backend Change:**
-        ```
-        The automated tests have passed. For manual verification, please follow these steps:
+7.  **Handle the reply:**
+    -   **yes:** continue to step 8.
+    -   **Defects reported:** Each defect in this phase's scope becomes a new todo appended to the phase (`id: fix-<phase>-<n>`, `phase: <phase>`, `files`, content describing the defect). Run them through the normal task workflow. Out-of-scope requests go to **Backlog** with one line each. Then re-verify: show only the steps that failed. Never fix defects "off the books" while the verify todo sits `in_progress`.
+    -   **later / park:** Set the phase's verify todo to `status: deferred`, keep the steps in its plan body section under **Deferred check**, and continue. A deferred check blocks nothing, but status lists it, the track is reported "complete, unverified" until it is done, and archive warns before archiving it.
 
-        **Manual Verification Steps:**
-        1.  **Ensure the server is running.**
-        2.  **Execute the following command in your terminal:** `curl -X POST http://localhost:8080/api/v1/users -d '{"name": "test"}'`
-        3.  **Confirm that you receive:** A JSON response with a status of `201 Created`.
-        ```
+8.  **Checkpoint:** Never create an empty checkpoint commit. The checkpoint is the phase's last commit (`HEAD`). With **Commits** `user`, first hand over the phase's commit(s): the message, the exact `git add` file list, and wait for "committed"; then read `git log` and record each todo's SHA.
 
-5.  **Await Explicit User Feedback:**
-    -   After presenting the detailed plan, ask the user for confirmation: "**Does this meet your expectations? Please confirm with yes or provide feedback on what needs to be changed.**"
-    -   **PAUSE** and await the user's response. Do not proceed without an explicit yes or confirmation.
+9.  **Verification report as a git note:** Write the report (test command and result, agent-run checks, hand-check steps and the user's reply, or why none was needed) to a temporary file, then follow **Commit approval** and the **Git Write Policy** before running `git notes add -F <note-file> HEAD`. Skip when **Commits** is `user`.
 
-6.  **Create Checkpoint Commit:**
-    -   Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing. Suggested message: `conductor(checkpoint): Checkpoint end of Phase X`. Skip if the user declines and no commit is needed.
+10. **Record the checkpoint:** Append `[checkpoint: <sha>]` (first 7 characters of `HEAD`) to the phase heading in the plan body and mark the verify todo `completed` (or `deferred`). When **Conductor files** is `committed`, commit the plan updates for this phase now (`conductor(plan): Update progress for phase '<phase>'`).
 
-7.  **Attach Auditable Verification Report using Git Notes:**
-    -   **Step 7.1: Draft Note Content:** Create a detailed verification report including the automated test command, the manual verification steps, and the user's confirmation.
-    -   **Step 7.2: Attach Note:** Follow the **Git Write Policy** in templates/conductor-protocol.md before running `git notes add -F <note-file>` on the checkpoint commit.
-
-8.  **Get and Record Phase Checkpoint SHA:**
-    -   **Step 8.1: Get Commit Hash:** Obtain the hash of the *just-created checkpoint commit* (`git log -1 --format="%H"`). Skip if no checkpoint commit was made.
-    -   **Step 8.2: Update Plan:** Read the Conductor plan file, find the heading for the completed phase in the markdown body, and append the first 7 characters of the commit hash in the format `[checkpoint: <sha>]` (if available).
-    -   **Step 8.3: Write Plan:** Write the updated content back to the plan file.
-
-9. **Commit Plan Update:**
-    - **Action:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing the modified plan file. Suggested message: `conductor(plan): Mark phase '<PHASE NAME>' as complete`.
-
-10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created, with the detailed verification report attached as a git note.
+11. **Announce and continue:** One line: phase done, checkpoint SHA, what now works. Then follow **Autonomy** in **Working Agreements**: with `until-needed`, start the next phase in the same turn; with `phase`, stop here.
 
 ### Quality Gates
 

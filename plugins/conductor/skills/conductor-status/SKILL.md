@@ -87,6 +87,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   **Progress:** tasks_completed/tasks_total across active programme or all tracks (percentage)
     -   **Eligible:** comma-separated track ids/descriptions; append `(∥)` when multiple parallel-ready
     -   **Blocked:** `<track>` waits on `<depends_on>` — omit section if none
+    -   **Deferred checks:** hand checks the user postponed (`deferred` in each plan's JSON), as `<track> <phase>`; a track whose only open todos are deferred checks is "complete, unverified" — omit if none
     -   **Verdict:** On track | Behind | Blocked (one word + optional reason)
     -   Include current timestamp on its own line after the next-action line
 3.  **Programme table:** When `tracks.md` has a sequencing table, one line: "See sequencing table in tracks.md for order."

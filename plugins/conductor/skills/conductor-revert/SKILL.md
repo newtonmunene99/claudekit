@@ -113,10 +113,13 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     *   Find the primary SHA(s) for all tasks and phases recorded in the target's **Conductor plan file**.
     *   **Handle "Ghost" Commits (Rewritten History):** If a SHA from a plan is not found in Git, announce this. Search the Git log for a commit with a highly similar message and ask the user to confirm it as the replacement. If not confirmed, halt.
 
-2.  **Identify Associated Plan-Update Commits:**
-    *   For each validated implementation commit, use `git log` to find the corresponding plan-update commit that happened *after* it and modified the relevant **Conductor plan file** file.
+    *   **Todos without a SHA** (`(uncommitted)`, or plans that lagged behind git): search `git log --notes` for the task's git note and `git log --grep` for its commit subject, and confirm matches with the user.
 
-3.  **Identify the Track Creation Commit (Track Revert Only):**
+2.  **Identify Associated Plan-Update Commits (only when Conductor files is `committed`):**
+    *   For each validated implementation commit, use `git log` to find the corresponding plan-update commit that happened *after* it and modified the relevant **Conductor plan file** file.
+    *   When **Conductor files** is `local` (see **Working Agreements**), there are no plan-update or track-creation commits. Skip this step and step 3; Phase 4 resets the plan by editing the file.
+
+3.  **Identify the Track Creation Commit (Track Revert Only, committed mode):**
     *   **IF** the user's intent is to revert an entire track, you MUST perform this additional step.
     *   **Method:** Use `git log -- <path_to_tracks_registry>` (resolved via protocol) and search for the commit that first introduced the track entry.
         *   Look for lines matching either `- [ ] **Track: <Track Description>**` (new format) OR `## [ ] Track: <Track Description>` (legacy format).
@@ -162,6 +165,6 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 1.  **Execute Reverts:** Phase 3 "Approve" authorizes the planned `git revert` commands under the **Git Write Policy**. Run `git revert --no-edit <sha>` for each commit in your final list, starting from the most recent and working backward.
 2.  **Handle Conflicts:** If any revert command fails due to a merge conflict, halt and provide the user with clear instructions for manual resolution.
-3.  **Verify Plan State:** After all reverts succeed, read the relevant **Conductor plan file** file(s) again to ensure the reverted item has been correctly reset. If not, perform a file edit to fix it, then follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing the correction.
+3.  **Verify Plan State:** After all reverts succeed, read the relevant **Conductor plan file** file(s) again to ensure the reverted item has been correctly reset (todo `pending`, SHA removed, registry marker reset for a track revert). If not, edit the file. Commit the correction under the **Git Write Policy** only when **Conductor files** is `committed`.
 4.  **Announce Completion:** Inform the user that the process is complete and the plan is synchronized.
 

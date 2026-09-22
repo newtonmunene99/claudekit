@@ -44,7 +44,7 @@ isProject: true
 ---
 ```
 
-- `status` values: `pending`, `in_progress`, `completed`
+- `status` values: `pending`, `in_progress`, `completed`, and `deferred` (a phase hand check the user postponed; it blocks nothing)
 - On task completion, set `status: completed` and append commit SHA to `content`
 - Markdown body below frontmatter carries phases, goals, architecture
 - Register plan path in `conductor/context/tracks.md`
@@ -224,7 +224,7 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
     *   Resolve and read the **Workflow** file (via the **Universal File Resolution Protocol** using the project's index file).
     *   Generate a Conductor plan file at `conductor/plans/<slug>_<shortid>.plan.md` with frontmatter `todos` (see Conductor Plan Format above and **Plan Authoring Guide**).
     *   **CRITICAL:** Each todo must have `id`, `content`, and `status: pending`.
-    *   **CRITICAL:** The plan structure MUST adhere to the **Workflow** file (e.g., TDD: separate todos for "Write Tests" and "Implement").
+    *   **CRITICAL:** The plan structure MUST adhere to the **Workflow** file (TDD: one todo per behaviour, carrying its own failing test and landing as one green commit; `kind: refactor` for structure-only todos. See **One todo, one green commit** in the Workflow).
     *   **CRITICAL: Mandatory sync bookends.** First todo MUST be `conductor-sync-in-progress`; last todo MUST be `conductor-sync-complete`. Do NOT inject git-isolation todos unless the user explicitly requested one during planning.
     *   **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`.
     *   **CRITICAL: Declare edges.** Every implementation todo gets `files`; `blocked_by` only for real data dependencies (see **Dependencies are data edges** in the Plan Authoring Guide).
@@ -344,9 +344,10 @@ Use `templates/knowledge/decision-concept.md` for the OKF deliverable shape (`ty
           *Spec: [../specs/<track_id>/spec.md](../specs/<track_id>/spec.md)*
           *Plan: [../plans/<slug>_<shortid>.plan.md](../plans/<slug>_<shortid>.plan.md)*
         ```
-8.  **Commit Conductor Files:**
-    -   Follow the **Git Write Policy** in templates/conductor-protocol.md for all files created or modified in this workflow (spec, plan, index, metadata, **Tracks Registry**, OKF knowledge scaffold, backlog).
-    -   Suggested message: `chore(conductor): Add new track '<track_description>'` or `chore(conductor): Add remediation programme '<programme_id>'`.
+8.  **Commit Conductor Files (only when Conductor files is `committed`):**
+    -   Follow **Working Agreements** and the **Git Write Policy** in templates/conductor-protocol.md for all files created or modified in this workflow (spec, plan, index, metadata, **Tracks Registry**, backlog). An OKF knowledge scaffold outside `conductor/` is committed in either mode.
+    -   Suggested message: `conductor(track): Add track '<track_description>'` or `conductor(track): Add programme '<programme_id>'`.
+    -   When `local`, skip silently.
 9.  **Announce Completion:** One line: "Track `<track_id>` ready. Next: run `/conductor:conductor-implement`." For programmes: list track order and first implementable track (lowest `order` with satisfied `depends_on`).
 
 ### 2.5p Programme artifacts write loop

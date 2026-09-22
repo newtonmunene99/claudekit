@@ -14,6 +14,7 @@ Then (max 6 bullets when programme tracks exist; otherwise 5):
 - **Progress:** completed/total (percent)
 - **Eligible:** track ids ready to implement; mark `(∥)` when parallel-ready
 - **Blocked:** track waits on dependency — omit if none
+- **Deferred checks:** postponed hand checks as `<track> <phase>` — omit if none
 - **Verdict:** On track | Behind | Blocked
 
 ### `/conductor:conductor-implement`
@@ -23,6 +24,8 @@ Each progress update:
 1. **Done:** what now works (one line)
 2. **State:** task N/M, track name
 3. **Next:** the upcoming todo or command
+
+A progress update is mid-turn: send it and keep working (**Keep-Going Rule** in the implement skill). Stop only at a gate that needs the user.
 
 On track complete: lead with what shipped, then §5.0 cleanup via **User Prompt Protocol** — include combined options (`Archive and continue to <track_id>`, `Skip and continue to <track_id>`) when eligible next tracks exist. User must choose; never auto-advance.
 
