@@ -396,24 +396,21 @@ Document errors, panics, and edge cases when the signature alone is insufficient
         - **type:** "choice"
         - **multiSelect:** false
         - **options:**
-            - Label: "Archive", Description: "Move the track's folder to `conductor/archive/` and remove it from the tracks file."
+            - Label: "Archive", Description: "Move the track's spec and plan to `conductor/archive/`; the registry keeps a one-line (archived) entry."
             - Label: "Delete", Description: "Permanently delete the track's folder and remove it from the tracks file."
             - Label: "Skip", Description: "Do nothing and leave it in the tracks file."
 
 3.  **Handle User Response:**
     *   **If "Archive":**
-        i.   **Setup:** Ensure `conductor/archive/` exists.
-        ii.  **Move:** Move track folder to `conductor/archive/<track_id>`.
-        iii. **Update Registry:** Remove track section from **Tracks Registry**.
-        iv.  **Commit Conductor Files:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing. Suggested message: `chore(conductor): Archive track '<track_name>'`.
-        v.   **Announce:** "Track '<track_name>' archived."
+        i.   **Archive:** Follow `/conductor:conductor-archive` §3.0–4.0 for this track (`conductor_state.py archive <track_id>` moves the spec and plan and leaves an `(archived)` ledger line). Commit only when **Conductor files** is `committed`.
+        ii.  **Announce:** "Track '<track_name>' archived."
     *   **If "Delete":**
         i.   **Confirm:** Immediately use the **User Prompt Protocol** to ask for final confirmation (do not repeat the warning in the chat):
             - **questions:**
                 - **header:** "Confirm"
                 - **question:** "WARNING: This is an irreversible deletion. Do you want to proceed?"
                 - **type:** "yesno"
-        ii.  **If yes:** Delete track folder, remove from **Tracks Registry**, then follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing. Suggested message: `chore(conductor): Delete track '<track_name>'`. Announce success.
+        ii.  **If yes:** Delete the track folder and its plan file and remove the entry from **Tracks Registry**. Commit only when **Conductor files** is `committed` (**Git Write Policy**, message `conductor(track): Delete track '<track_name>'`). Announce success.
         iii. **If no:** Cancel.
     *   **If "Skip":** Leave track as is.
 

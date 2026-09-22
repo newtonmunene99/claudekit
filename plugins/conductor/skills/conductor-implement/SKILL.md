@@ -261,7 +261,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
     **Always include:**
     - **Review** — Run `/conductor:conductor-review` before finalizing.
-    - **Archive** — Move track folder to `conductor/archive/`, remove from tracks file.
+    - **Archive** — Move the spec and plan to `conductor/archive/<track_id>/`; the registry keeps a one-line `(archived)` entry.
     - **Delete** — Permanently delete track folder and registry entry.
     - **Skip** — Leave completed track in tracks file; stop for now.
 
@@ -296,16 +296,12 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
     *   **Choose next track…:** use the **User Prompt Protocol** `choice` — one option per eligible track + **Stop for now**. On track pick → if user also wants archive first, use the **User Prompt Protocol** `yesno`: "Archive '<completed_track>' before continuing?" — on yes run 4a then §5.1; on no §5.1. On stop → halt.
 
-    **4a. Archive steps:**
-    i. Create `conductor/archive/` if missing.
-    ii. Move `<Specs Directory>/<track_id>` → `conductor/archive/<track_id>`.
-    iii. Remove completed track section from **Tracks Registry**.
-    iv. Follow **Git Write Policy** — message: `chore(conductor): Archive track '<track_description>'`.
+    **4a. Archive steps:** Follow `/conductor:conductor-archive` §3.0–4.0 for this track: run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id>` (it moves the spec folder **and** the plan into `conductor/archive/<track_id>/` and turns the registry entry into an `(archived)` ledger line that keeps dependents unblocked), handle exit 3 as that skill describes, and commit only when **Conductor files** is `committed`.
 
     **4b. Delete steps:** (after yes on confirm)
     a. Delete `<Specs Directory>/<track_id>`.
     b. Remove track section from **Tracks Registry**.
-    c. Follow **Git Write Policy** — message: `chore(conductor): Delete track '<track_description>'`.
+    c. Also delete the track's plan file. Commit only when **Conductor files** is `committed` (**Git Write Policy**, message `conductor(track): Delete track '<track_description>'`).
 
 ---
 

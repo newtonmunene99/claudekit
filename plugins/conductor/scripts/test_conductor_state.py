@@ -113,5 +113,78 @@ class PlanDeferredVerification(unittest.TestCase):
     self.assertEqual(out["deferred"], ["verify-p1"])
 
 
+class ArchiveTrack(unittest.TestCase):
+
+  REGISTRY = """
+      # Tracks Registry
+
+      ---
+
+      - [x] **Track: Grid view**
+        *Spec: [../specs/grid_20260101/spec.md](../specs/grid_20260101/spec.md)*
+        *Plan: [../plans/grid_a1b2c3.plan.md](../plans/grid_a1b2c3.plan.md)*
+
+      - [ ] **Track: Toolbar**
+        *Spec: [../specs/toolbar_20260102/spec.md](../specs/toolbar_20260102/spec.md)*
+        *Plan: [../plans/toolbar_d4e5f6.plan.md](../plans/toolbar_d4e5f6.plan.md)*
+      """
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+    self.p.write("conductor/context/tracks.md", self.REGISTRY)
+    self.p.write("conductor/specs/grid_20260101/spec.md", "# Grid\n")
+    self.p.write("conductor/specs/grid_20260101/index.md",
+                 "- [Plan](../../plans/grid_a1b2c3.plan.md)\n")
+    self.p.write("conductor/plans/grid_a1b2c3.plan.md", """
+        ---
+        name: Grid
+        todos:
+          - id: conductor-sync-complete
+            status: completed
+        ---
+        """)
+    self.p.write("conductor/specs/toolbar_20260102/metadata.json",
+                 '{"depends_on": ["grid_20260101"]}')
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def exists(self, rel):
+    return os.path.exists(os.path.join(self.p.root, rel))
+
+  def read(self, rel):
+    with open(os.path.join(self.p.root, rel), encoding="utf-8") as fh:
+      return fh.read()
+
+  def test_moves_spec_and_plan_into_archive(self):
+    out, code = self.p.run("archive", "grid_20260101")
+    self.assertEqual(code, 0, out)
+    self.assertTrue(self.exists("conductor/archive/grid_20260101/spec.md"))
+    self.assertTrue(self.exists("conductor/archive/grid_20260101/grid_a1b2c3.plan.md"))
+    self.assertFalse(self.exists("conductor/specs/grid_20260101"))
+    self.assertFalse(self.exists("conductor/plans/grid_a1b2c3.plan.md"))
+    self.assertIn("(./grid_a1b2c3.plan.md)", self.read("conductor/archive/grid_20260101/index.md"))
+
+  def test_leaves_a_ledger_line_that_still_satisfies_dependents(self):
+    self.p.run("archive", "grid_20260101")
+    registry = self.read("conductor/context/tracks.md")
+    self.assertIn("- [x] **Track: Grid view** (archived)", registry)
+    self.assertIn("(../archive/grid_20260101/spec.md)", registry)
+    self.assertNotIn("../plans/grid_a1b2c3.plan.md", registry)
+    out, _ = self.p.run("tracks")
+    self.assertEqual(out["recommended"], "toolbar_20260102")
+
+  def test_refuses_an_incomplete_track_without_force(self):
+    out, code = self.p.run("archive", "toolbar_20260102")
+    self.assertEqual(code, 3)
+    self.assertIn("not_completed", out["needs_confirmation"])
+    self.assertFalse(self.exists("conductor/archive/toolbar_20260102"))
+
+  def test_tracks_lists_completed_tracks_that_can_be_archived(self):
+    out, _ = self.p.run("tracks")
+    self.assertEqual(out["archivable"], ["grid_20260101"])
+
+
 if __name__ == "__main__":
   unittest.main()
