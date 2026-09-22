@@ -45,7 +45,7 @@ isProject: true
 ---
 ```
 
-- `status` values: `pending`, `in_progress`, `completed`, and `deferred` (a phase hand check the user postponed; it blocks nothing)
+- `status` values: `pending`, `in_progress`, `completed`, `deferred` (a phase hand check the user postponed; it blocks nothing), and `blocked` (waiting on something outside the plan; `blocked_on` says what)
 - On task completion, set `status: completed` and append commit SHA to `content`
 - Markdown body below frontmatter carries phases, goals, architecture
 - Register plan path in `conductor/context/tracks.md`

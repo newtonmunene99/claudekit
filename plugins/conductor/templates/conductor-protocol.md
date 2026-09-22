@@ -67,6 +67,8 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> [--create-ok]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" backlog
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [--force]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" set-todo <plan> <todo_id> <status> [--sha <sha>] [--on <reason>]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" track-status <track_id> <pending|in_progress|completed>
 ```
 
 | Subcommand | Replaces | Output |
@@ -75,6 +77,8 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [-
 | `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`), `deferred`, `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
 | `verify-paths <file>` | Path verification checklist `test -f` loop | `paths[]` with `verified` / `missing` / `create` / `line-out-of-range` and `suggestions`; exit 2 when anything is missing |
 | `backlog` | Grepping `backlog.md` for candidates | `items[]` with `slug`, `title`, `status` (`open` / `done` / `parked` / `gated` / `decided`), `line`, `section`; `open` count; `duplicates` |
+| `set-todo <plan> <id> <status>` | Hand-editing a todo's `status` with regex or heredocs | Edits that todo's lines in place; `--sha` appends the short SHA to `content`; `blocked` needs `--on <reason>` |
+| `track-status <track_id> <status>` | Editing the registry marker and `metadata.json` by hand | Sets `[ ]` / `[~]` / `[x]`, metadata `status`, and a real UTC `updated_at` |
 | `archive <track_id>` | Hand-moving the spec folder and editing the registry | Moves spec **and** plan into `conductor/archive/<id>/`, rewrites the entry as an `(archived)` ledger line; exit 3 with `needs_confirmation` (`not_completed`, `deferred_checks`) unless `--force` |
 
 Rules:
@@ -83,6 +87,7 @@ Rules:
 2. Exit 1 = unreadable input (announce and use **Failure Policy**). Exit 2 from `verify-paths` = missing paths (present the fix table; do not proceed until resolved).
 3. Fallback (local dev): `./plugins/conductor/scripts/conductor_state.py` from the claudekit repo root.
 4. If `python3` is unavailable, announce it once and fall back to the manual steps in each protocol below.
+5. **State changes go through the script.** Change todo status with `set-todo` and track status with `track-status`, never with `sed`, `perl`, or a heredoc: hand edits have mangled plans and written placeholder timestamps.
 
 ## Eligible Tracks Protocol
 
@@ -156,7 +161,9 @@ todos:
 ---
 ```
 
-Frontmatter `todos` are the source of truth for implement, status, and revert. Append commit SHAs to `content` on completion.
+Frontmatter `todos` are the source of truth for implement, status, and revert. Append commit SHAs to `content` on completion (`set-todo … completed --sha <sha>`).
+
+Todo `status` values: `pending`, `in_progress`, `completed`, `deferred` (a postponed hand check; blocks nothing), and `blocked` (waiting on something outside the plan, such as an upstream PR or an access grant; `blocked_on` says what, and `next` skips it).
 
 Optional plan-level fields: `depends_on`, `blocks`, `programme_id`, `review_rounds` (integer, see **Convergence Budgets**). Optional todo-level fields:
 

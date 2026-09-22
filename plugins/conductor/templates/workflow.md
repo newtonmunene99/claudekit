@@ -43,7 +43,7 @@ All tasks follow a strict lifecycle. **All Git write operations** (staging, comm
 
 1. **Select Task:** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` and take `next` (the first todo whose `blocked_by` are all completed, in frontmatter order). When `parallel_batch` is non-empty, follow the **Parallel Dispatch Protocol** in templates/conductor-protocol.md before continuing. Fallback without `python3`: the next pending todo in frontmatter order whose `blocked_by` are all completed.
 
-2. **Mark In Progress:** Before beginning work, update the plan frontmatter: set the todo's `status` to `in_progress`
+2. **Mark In Progress:** Before beginning work: `conductor_state.py set-todo <plan> <todo_id> in_progress`.
 
 ### TDD Iron Law
 
@@ -93,10 +93,12 @@ A slice that can neither fail a test before it nor pass as a pure refactor is no
 
 6b. **Independent Verification (risky todos):** When **Verifier** in **Working Agreements** is `per-todo`, or the todo is risky (it changes a public API or exported symbol, touches auth, security, secrets, or data migrations, or its diff exceeds ~150 lines), run the **Independent Verification Protocol** in templates/conductor-protocol.md before committing: a fresh subagent receives the todo, its plan section, the relevant acceptance criteria, the diff, and the test output, and returns `Approve` or `Reject`. On `Reject`, fix the numbered issues (increment the todo's `attempts`), re-verify; after 2 rejections escalate via the **User Prompt Protocol**. Other todos are covered by the per-phase verifier at the phase checkpoint.
 
+   - **External blocker:** When a todo cannot proceed until something outside the repo happens (an upstream PR merges, access is granted), mark it `set-todo <plan> <id> blocked --on "<what>"`, tell the user in one line, and continue with other ready todos. The track stays `[~]` until the blocker clears.
+
 7. **Document Deviations:** If the implementation has to differ from the plan, the spec, or the tech stack:
    - **STOP** implementation
    - Tech stack change: update `conductor/context/tech-stack.md` and add a dated note
-   - Design change: update the spec requirement **and** rewrite every affected pending todo in the plan (content, files, body section) in the same step, so the next session does not follow stale instructions
+   - Design change: update the spec requirement **and** rewrite every affected pending todo in the plan (content, files, body section) in the same step, so the next session does not follow stale instructions. Adding todos or a phase follows **Amending a plan** in the Plan Authoring Guide.
    - Resume implementation
 
 8. **Commit Code Changes:**
@@ -114,8 +116,8 @@ A slice that can neither fail a test before it nor pass as a pure refactor is no
      ```
 
 10. **Get and Record Task Commit SHA:**
-    - **Step 10.1: Update Plan:** Read the Conductor plan file, find the completed todo, set `status` to `completed`, and append the first 7 characters of the commit hash to `content` (if a commit was made; otherwise omit the SHA).
-    - **Step 10.2: Write Plan:** Write the updated content back to the plan file immediately, before anything else. A plan that lags behind git makes the next session redo committed work.
+    - **Step 10.1: Update Plan:** `conductor_state.py set-todo <plan> <todo_id> completed --sha <first 7 chars>` (omit `--sha` when no commit was made).
+    - **Step 10.2: Do it now,** before anything else. A plan that lags behind git makes the next session redo committed work.
 
 11. **Plan commits:** Only when **Conductor files** is `committed`: plan updates are committed together at the phase checkpoint (`conductor(plan): Update progress for phase '<phase>'`), not after every todo. When `local`, there is nothing to commit.
 

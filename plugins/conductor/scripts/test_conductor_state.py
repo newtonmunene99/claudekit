@@ -5,6 +5,7 @@ Each test builds a throwaway conductor/ tree and runs the real script from its
 root, the same way the skills do.
 """
 
+import datetime
 import json
 import os
 import subprocess
@@ -256,6 +257,93 @@ class Backlog(unittest.TestCase):
         """)
     out, _ = self.p.run("backlog")
     self.assertEqual(out["duplicates"], ["render-the-markdown-support-actually-sends"])
+
+
+class WriteSubcommands(unittest.TestCase):
+
+  PLAN = "conductor/plans/grid_a1b2c3.plan.md"
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+    self.p.write(self.PLAN, """
+        ---
+        name: Grid
+        todos:
+          - id: grid-rows
+            content: "Render one row per product"
+            status: in_progress
+            files: [src/Grid.svelte]
+          - id: grid-sort
+            content: "Sort rows by name"
+            status: pending
+        ---
+
+        # Grid
+        """)
+    self.p.write("conductor/context/tracks.md", """
+        - [ ] **Track: Grid view**
+          *Spec: [../specs/grid_20260101/spec.md](../specs/grid_20260101/spec.md)*
+        """)
+    self.p.write("conductor/specs/grid_20260101/metadata.json",
+                 '{"track_id": "grid_20260101", "status": "new", "order": 2}')
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def read(self, rel):
+    with open(os.path.join(self.p.root, rel), encoding="utf-8") as fh:
+      return fh.read()
+
+  def test_set_todo_records_status_and_sha_without_touching_other_todos(self):
+    out, code = self.p.run("set-todo", self.PLAN, "grid-rows", "completed", "--sha", "4f9c2e1")
+    self.assertEqual(code, 0, out)
+    plan = self.read(self.PLAN)
+    self.assertIn('content: "Render one row per product (4f9c2e1)"', plan)
+    self.assertIn("status: completed", plan)
+    self.assertIn('content: "Sort rows by name"\n    status: pending', plan)
+    self.assertTrue(plan.rstrip().endswith("# Grid"))
+
+  def test_set_todo_blocked_records_the_reason_and_plan_skips_it(self):
+    self.p.run("set-todo", self.PLAN, "grid-sort", "blocked", "--on", "upstream PR adk-go#812")
+    self.p.run("set-todo", self.PLAN, "grid-rows", "completed")
+    out, _ = self.p.run("plan", self.PLAN)
+    self.assertIsNone(out["next"])
+    self.assertEqual(out["blocked"], [{"id": "grid-sort", "on": "upstream PR adk-go#812"}])
+
+  def test_set_todo_handles_block_lists_before_status(self):
+    self.p.write(self.PLAN, """
+        ---
+        name: Grid
+        todos:
+          - id: grid-rows
+            files:
+              - src/Grid.svelte
+              - src/Grid.test.ts
+            status: pending
+        ---
+        """)
+    self.p.run("set-todo", self.PLAN, "grid-rows", "in_progress")
+    plan = self.read(self.PLAN)
+    self.assertEqual(plan.count("status:"), 1)
+    self.assertIn("status: in_progress", plan)
+
+  def test_set_todo_rejects_an_unknown_todo(self):
+    out, code = self.p.run("set-todo", self.PLAN, "grid-typo", "completed")
+    self.assertEqual(code, 1)
+    self.assertIn("grid-typo", out["error"])
+
+  def test_track_status_updates_registry_and_metadata_with_a_real_timestamp(self):
+    before = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    out, code = self.p.run("track-status", "grid_20260101", "in_progress")
+    self.assertEqual(code, 0, out)
+    self.assertIn("- [~] **Track: Grid view**", self.read("conductor/context/tracks.md"))
+    meta = json.loads(self.read("conductor/specs/grid_20260101/metadata.json"))
+    self.assertEqual(meta["status"], "in_progress")
+    self.assertEqual(meta["order"], 2)
+    stamp = datetime.datetime.strptime(meta["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=datetime.timezone.utc)
+    self.assertGreaterEqual(stamp, before)
 
 
 if __name__ == "__main__":

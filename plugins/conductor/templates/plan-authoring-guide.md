@@ -233,6 +233,18 @@ After drafting the complete plan, hand this checklist to a **fresh verifier** pe
 13. **Registration points:** Every CI, harness, example, or registration file touched by the last comparable addition has a todo.
 14. **Tooling:** Dependency, build, and codegen steps use the exact commands and flags recorded in **Tech Stack** and the Workflow's **Development Commands**.
 
+## Amending a plan mid-track
+
+Plans change during implementation: a hand check finds defects, the user adds scope, or a design turns out wrong. Keep the frontmatter and the body in step so the next session can trust both.
+
+1. **New todos** get the full shape: `id`, `content`, `status: pending`, `phase`, `files`, and `blocked_by` only for real data edges. Append them in the phase they belong to, before `conductor-sync-complete`.
+2. **New phase:** add its todos, a body section for each todo (Files, Interfaces, micro-steps), a `verify-p<N>` hand-check todo when the workflow uses phase checkpoints, and a line in the **Phases** map. Never add frontmatter todos without their body sections.
+3. **Changed design:** rewrite every affected pending todo (content, files, body) in the same edit, and update the spec requirement.
+4. **Side commits** made during the track but outside any todo (a fix in a sibling repo, an unrelated bug found while testing) go in a `## Side commits` list in the plan body: SHA, repo, one line of why. Status and review then see them.
+5. **Check:** run `conductor_state.py plan <plan>` and `verify-paths <plan> --create-ok`; fix any `unknown_blockers` or missing paths before continuing.
+
+**Follow-up on a finished track.** Decisions reached after a track closed go in a dated `## Addendum YYYY-MM-DD` section of its spec, archived or not. New code work becomes a new track or a backlog item; do not reopen an archived track.
+
 ## Direct plan execution
 
 Users may run this plan from Claude Code chat without `/conductor:conductor-implement`. Sync bookend todos keep `tracks.md` and `metadata.json` aligned with progress. Implementation todos follow `conductor/context/workflow.md` including TDD and Systematic Debugging Protocol.

@@ -8,6 +8,10 @@ Every subcommand prints ONE JSON object on stdout. Run from the project root.
     conductor_state.py plan <plan.md>         todo counts, in-progress, ready + parallel batches
     conductor_state.py verify-paths <file.md> repo paths cited in a plan or review exist
     conductor_state.py backlog                open / done / parked backlog items with stable slugs
+    conductor_state.py set-todo <plan.md> <todo_id> <status> [--sha <sha>] [--on <reason>]
+                                              edit one todo's status in place (no YAML rewrite)
+    conductor_state.py track-status <track_id> <pending|in_progress|completed>
+                                              registry marker + metadata status + real UTC updated_at
     conductor_state.py archive <track_id> [--force]
                                               move spec + plan to conductor/archive/<id>/
                                               and leave an "(archived)" ledger line
@@ -17,6 +21,7 @@ Exit codes: 0 ok, 1 usage or unreadable input, 2 verify-paths found missing path
 Only the standard library is used so the script runs anywhere python3 does.
 """
 
+import datetime
 import glob
 import json
 import os
@@ -243,13 +248,18 @@ def cmd_plan(args):
   by_id = {t["id"]: t for t in todos}
   done = {t["id"] for t in todos if t.get("status") in TERMINAL}
 
-  counts = {"pending": 0, "in_progress": 0, "completed": 0, "deferred": 0}
+  counts = {"pending": 0, "in_progress": 0, "completed": 0, "deferred": 0, "blocked": 0}
   for t in todos:
     counts[t.get("status") if t.get("status") in counts else "pending"] += 1
 
-  ready, waiting = [], []
+  ready, waiting, blocked_ext = [], [], []
   for t in todos:
     if t.get("status") in TERMINAL:
+      continue
+    # Blocked on something outside the plan (an upstream PR, an access grant):
+    # never ready until someone sets it back to pending.
+    if t.get("status") == "blocked":
+      blocked_ext.append({"id": t["id"], "on": t.get("blocked_on")})
       continue
     blockers = [b for b in as_list(t.get("blocked_by")) if b in by_id and b not in done]
     unknown = [b for b in as_list(t.get("blocked_by")) if b not in by_id]
@@ -281,11 +291,12 @@ def cmd_plan(args):
   # remains but none of it is ready (cycle, typo'd blocker), say so instead of
   # letting the loop close the track early.
   if next_todo and next_todo["id"] == "conductor-sync-complete" and (
-      counts["pending"] + counts["in_progress"]) > 1:
+      counts["pending"] + counts["in_progress"] + counts["blocked"]) > 1:
     next_todo = next((r for r in ready if r["id"] not in sync_ids), None)
     if next_todo is None:
       blocked_reason = "no todo is ready: " + ", ".join(
-          f"{w['id']} waits on {w['blocked_by']}" for w in waiting)
+          [f"{w['id']} waits on {w['blocked_by']}" for w in waiting]
+          + [f"{b['id']} is blocked on {b['on']}" for b in blocked_ext])
 
   # Parallel batch: ready todos whose declared file sets are pairwise disjoint.
   # Todos without `files` are never batched; they run alone in frontmatter order.
@@ -308,6 +319,7 @@ def cmd_plan(args):
       "total": len(todos),
       "in_progress": [t["id"] for t in todos if t.get("status") == "in_progress"],
       "deferred": [t["id"] for t in todos if t.get("status") == "deferred"],
+      "blocked": blocked_ext,
       "next": next_todo,
       "ready": ready,
       "waiting": waiting,
@@ -491,13 +503,8 @@ def _plan_from_index(spec_dir):
   return os.path.normpath(os.path.join(spec_dir, m.group("path"))) if m else None
 
 
-def _archive_registry_entry(text, track_id):
-  """Turns the track's registry entry into a one-line ledger that still links its spec.
-
-  The header keeps the user's wording and any order hint; it gains [x] and
-  "(archived)". The plan link is dropped and the spec link points into archive/.
-  """
-  lines = text.replace("\r\n", "\n").split("\n")
+def _registry_block(lines, track_id):
+  """Returns (start, end) of the registry entry whose links name track_id, or None."""
   starts = [i for i, line in enumerate(lines) if TRACK_LINE.match(line.strip())]
   for n, start in enumerate(starts):
     end = starts[n + 1] if n + 1 < len(starts) else len(lines)
@@ -505,16 +512,28 @@ def _archive_registry_entry(text, track_id):
       if lines[j].strip() == "---" or lines[j].startswith("#"):
         end = j
         break
-    block = lines[start:end]
-    if not any(f"../specs/{track_id}/" in line for line in block[1:]):
-      continue
-    header = re.sub(r"\[[ ~x]\]", "[x]", block[0], count=1)
-    if "(archived)" not in header:
-      header = header.rstrip() + " (archived)"
-    body = [line.replace(f"../specs/{track_id}/", f"../archive/{track_id}/")
-            for line in block[1:] if not PLAN_LINK.search(line)]
-    return "\n".join(lines[:start] + [header] + body + lines[end:]), True
-  return text, False
+    if any(f"/{track_id}/" in line for line in lines[start + 1:end]):
+      return start, end
+  return None
+
+
+def _archive_registry_entry(text, track_id):
+  """Turns the track's registry entry into a one-line ledger that still links its spec.
+
+  The header keeps the user's wording and any order hint; it gains [x] and
+  "(archived)". The plan link is dropped and the spec link points into archive/.
+  """
+  lines = text.replace("\r\n", "\n").split("\n")
+  found = _registry_block(lines, track_id)
+  if found is None:
+    return text, False
+  start, end = found
+  header = re.sub(r"\[[ ~x]\]", "[x]", lines[start], count=1)
+  if "(archived)" not in header:
+    header = header.rstrip() + " (archived)"
+  body = [line.replace(f"../specs/{track_id}/", f"../archive/{track_id}/")
+          for line in lines[start + 1:end] if not PLAN_LINK.search(line)]
+  return "\n".join(lines[:start] + [header] + body + lines[end:]), True
 
 
 def cmd_archive(args):
@@ -575,15 +594,107 @@ def cmd_archive(args):
   }, 0
 
 
+# --- writes ------------------------------------------------------------------
+
+TODO_STATUSES = ("pending", "in_progress", "completed", "deferred", "blocked")
+TRACK_STATUSES = {"pending": (" ", "new"), "in_progress": ("~", "in_progress"),
+                  "completed": ("x", "completed")}
+
+
+def _flag(args, name):
+  if name in args:
+    i = args.index(name)
+    if i + 1 < len(args):
+      return args[i + 1], args[:i] + args[i + 2:]
+  return None, args
+
+
+def cmd_set_todo(args):
+  """Edits one todo's lines in place so the rest of the plan keeps its formatting."""
+  sha, args = _flag(list(args), "--sha")
+  on, args = _flag(args, "--on")
+  if len(args) != 3 or args[2] not in TODO_STATUSES:
+    return {"error": "usage: conductor_state.py set-todo <plan.md> <todo_id> "
+                     f"<{'|'.join(TODO_STATUSES)}> [--sha <sha>] [--on <reason>]"}, 1
+  path, todo_id, status = args
+  if not os.path.isfile(path):
+    return {"error": f"plan not found: {path}"}, 1
+  fm_text, body = split_frontmatter(read_text(path))
+  if fm_text is None:
+    return {"error": f"no frontmatter in {path}"}, 1
+  lines = fm_text.split("\n")
+  id_line = re.compile(r"^(?P<dash>\s*)-\s+id:\s*['\"]?" + re.escape(todo_id) + r"['\"]?\s*$")
+  start = next((i for i, line in enumerate(lines) if id_line.match(line)), None)
+  if start is None:
+    return {"error": f"todo not found in {path}: {todo_id}"}, 1
+  indent = " " * (len(id_line.match(lines[start]).group("dash")) + 2)
+  end = start + 1
+  # Fields sit at the todo's indent + 2; the next todo starts at the dash indent.
+  while end < len(lines) and lines[end].startswith(indent):
+    end += 1
+  fields = lines[start + 1:end]
+
+  def set_field(key, value):
+    for i, line in enumerate(fields):
+      if line.strip().startswith(key + ":"):
+        fields[i] = f"{indent}{key}: {value}"
+        return
+    fields.append(f"{indent}{key}: {value}")
+
+  set_field("status", status)
+  if sha:
+    for i, line in enumerate(fields):
+      m = re.match(r"^(\s*content:\s*)(?P<v>.*)$", line)
+      if m:
+        v = m.group("v").rstrip()
+        v = (v[:-1] + f" ({sha})" + v[-1]) if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'" else f"{v} ({sha})"
+        fields[i] = m.group(1) + v
+        break
+  if status == "blocked":
+    set_field("blocked_on", json.dumps(on or "unspecified"))
+  else:
+    fields = [line for line in fields if not line.strip().startswith("blocked_on:")]
+  new_fm = "\n".join(lines[:start + 1] + fields + lines[end:])
+  with open(path, "w", encoding="utf-8") as fh:
+    fh.write("---\n" + new_fm + "\n---\n" + body)
+  return {"plan": path, "todo": todo_id, "status": status, "sha": sha, "blocked_on": on}, 0
+
+
+def cmd_track_status(args):
+  if len(args) != 2 or args[1] not in TRACK_STATUSES:
+    return {"error": "usage: conductor_state.py track-status <track_id> <pending|in_progress|completed>"}, 1
+  track_id, status = args
+  marker, meta_status = TRACK_STATUSES[status]
+  if not os.path.isfile(TRACKS_FILE):
+    return {"error": f"{TRACKS_FILE} not found; run /conductor:conductor-setup"}, 1
+  lines = read_text(TRACKS_FILE).replace("\r\n", "\n").split("\n")
+  found = _registry_block(lines, track_id)
+  if found is None:
+    return {"error": f"track not in registry: {track_id}"}, 1
+  lines[found[0]] = re.sub(r"\[[ ~x]\]", f"[{marker}]", lines[found[0]], count=1)
+  with open(TRACKS_FILE, "w", encoding="utf-8") as fh:
+    fh.write("\n".join(lines))
+  now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+  meta_path = os.path.join(SPECS_DIR, track_id, "metadata.json")
+  meta = load_metadata(track_id)
+  if os.path.isfile(meta_path):
+    meta["status"], meta["updated_at"] = meta_status, now
+    with open(meta_path, "w", encoding="utf-8") as fh:
+      fh.write(json.dumps(meta, indent=2) + "\n")
+  return {"track_id": track_id, "status": status, "updated_at": now,
+          "metadata": os.path.isfile(meta_path)}, 0
+
+
 # --- main --------------------------------------------------------------------
 
 COMMANDS = {"tracks": cmd_tracks, "plan": cmd_plan, "verify-paths": cmd_verify_paths,
-            "backlog": cmd_backlog, "archive": cmd_archive}
+            "backlog": cmd_backlog, "archive": cmd_archive,
+            "set-todo": cmd_set_todo, "track-status": cmd_track_status}
 
 
 def main(argv):
   if len(argv) < 2 or argv[1] not in COMMANDS:
-    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|backlog|archive> [args]"}))
+    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|backlog|archive|set-todo|track-status> [args]"}))
     return 1
   result, code = COMMANDS[argv[1]](argv[2:])
   print(json.dumps(result, indent=2))
