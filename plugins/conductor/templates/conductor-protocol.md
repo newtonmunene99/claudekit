@@ -34,7 +34,7 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 - **Tracks Registry**: `conductor/context/tracks.md`
 - **Backlog**: `conductor/context/backlog.md`
 - **Reviews Directory**: `conductor/reviews/`
-- **Review document**: `conductor/reviews/<slug>_YYYYMMDD-review.md`
+- **Review document**: `conductor/reviews/<slug>_YYYYMMDD-review.md` (a track's review record is `conductor/reviews/<track_id>-review.md`)
 - **Knowledge Bundle (OKF)**: resolve per **Knowledge Bundle Resolution** below — typically `knowledge/` at repo root or `<pkg>/knowledge/`. Not `conductor/knowledge/` by default.
 - **Decision concept**: `<bundle-root>/decisions/<slug>.md` (OKF concept ID: `decisions/<slug>`)
 - **Decision evidence**: `<bundle-root>/decisions/evidence/<slug>.md`
@@ -261,7 +261,7 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
 
 - track, plan, or todo ids (`<slug>_YYYYMMDD`, `<slug>_<shortid>`, `verify-p2`), phase labels (`P3`, `C4`)
 - paths under `conductor/`, or "see tech-stack.md" / "per the plan" / "when the <x> track lands"
-- review finding ids (`ARCH-3`, `QW-2`, `§3.2`)
+- review finding ids (`R3`, `ARCH-3`, `QW-2`, `§3.2`)
 
 **Instead**, state the invariant or reason itself: "Retries stop after 3 attempts because the upstream limit resets each minute", not "per decision in tech-stack.md". Commit messages describe behaviour in the code's own terms. The `conductor(...)` commit scope is only for commits that change Conductor files, which exist only when artifacts are committed.
 

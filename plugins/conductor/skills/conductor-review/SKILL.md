@@ -92,6 +92,10 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         - **question:** "I will review: '<identified_scope>'. Is this correct?"
         - **type:** "yesno"
 
+**Scope from context:** When invoked from implement's track cleanup, or when `{{args}}` is an exact `track_id`, the scope is confirmed: skip steps 2–3.
+
+**Prior findings:** When `{{args}}` or the conversation carries findings from an earlier review (another tool's report, a pasted list), list every one of them now. After analysis (§2.3), each maps to exactly one outcome in the review record's **Prior findings** table: **kept** (→ its `R` id), **merged** into another finding, or **rejected** with the evidence. None is dropped silently.
+
 4.  **Determine Review Mode** (after scope is confirmed):
 
 | Mode | When | Signal level |
@@ -233,6 +237,8 @@ Document errors, panics, and edge cases when the signature alone is insufficient
 
 ### 2.4 Output Findings
 
+**Number every finding** `R1`, `R2`, … in severity order. The ids live in the review record and chat only; never in code or commit messages (**Artifact Reference Policy**).
+
 **Line 1 (before the report heading):** `**Verdict:** <Approve | Approve with nits | Request changes> — <one-sentence reason>`
 
 **Format the report strictly as follows:**
@@ -293,6 +299,29 @@ Document errors, panics, and edge cases when the signature alone is insufficient
 
 ---
 
+### 2.5 Write the Review Record
+
+Right after the report, in the same turn, write it to `conductor/reviews/<track_id>-review.md` (working-tree or range reviews: `conductor/reviews/<slug>_YYYYMMDD-review.md`). On a re-review, update the existing record and bump its round.
+
+```markdown
+# Review — <track description or scope>
+
+**Date:** YYYY-MM-DD · **Scope:** <track_id or revision range> · **Verdict:** <verdict> · **Round:** <n>
+
+| ID | Severity | Finding | Location | Status |
+| -- | -------- | ------- | -------- | ------ |
+| R1 | High | <one line> | `path/file.go:L40` | open |
+
+## Prior findings
+| Source | Their finding | Outcome |
+| ------ | ------------- | ------- |
+| /code-review | <one line> | kept → R1 |
+
+<the full report from §2.4>
+```
+
+`Status` is one of `open`, `fixed (<sha>)`, `waived`, `rejected: <why>`. The table answers "is anything still open?" without re-reading the report. Then continue to §3.1 in the same turn: never end the turn on the report alone.
+
 ## 3.0 COMPLETION PHASE
 
 ### 3.1 Review Decision
@@ -339,6 +368,7 @@ Document errors, panics, and edge cases when the signature alone is insufficient
     - **type:** "yesno"
     - If yes: apply documentation-only edits per §2.3.D (no refactors). Then proceed to §3.2.
     - If no: proceed to §3.2.
+    - **Update the record:** set each addressed finding's `Status` (`fixed (<sha>)` once committed in §3.2, or `waived`), and end with one line: "N fixed, M open, K waived." Before saying everything is fixed, compare against the record, including **Prior findings** kept from other reviews.
 
 5.  **Manual Fix:** Terminate and allow the user to edit code.
 
@@ -385,8 +415,8 @@ Document errors, panics, and edge cases when the signature alone is insufficient
     - Verdict is **Approve** or **Approve with nits**, **or** (**Request changes** with `high_waiver_granted = true` and no open **Critical**)
     - All plan todos are `completed` (including `conductor-sync-in-progress` and `conductor-sync-complete` if present)
     - Test suite passed during review (or user acknowledged failures)
-    - No open **Critical** findings
-    - No open **High** findings unless `high_waiver_granted = true` from §3.1 **Waive High and Proceed**
+    - No open **Critical** findings in the review record
+    - No open **High** findings in the review record unless `high_waiver_granted = true` from §3.1 **Waive High and Proceed**
     - If checklist fails, announce gaps and use the **User Prompt Protocol** before offering Archive/Delete.
 
 2.  **Ask for User Choice:** Immediately use the **User Prompt Protocol** to prompt the user (do not repeat the question in the chat):
