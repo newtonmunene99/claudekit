@@ -35,7 +35,8 @@ Use the **Deterministic Plumbing Protocol** in templates/conductor-protocol.md �
 
 1. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks` → registry, eligible / parallel-ready / blocked, recommended next track.
 2. For each incomplete track with a `plan` path: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` → `counts`, `in_progress`, `next`, `phases`.
-3. Only compose the summary from those JSON fields. Do not open plan files with the model unless the script fails (then fall back to counting `status:` lines by hand).
+3. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor` → drift from current conventions (read-only).
+4. Only compose the summary from those JSON fields. Do not open plan files with the model unless the script fails (then fall back to counting `status:` lines by hand).
 
 Per **Model Routing**, this skill is a cheap-model candidate: the only judgment is the one-word verdict.
 
@@ -87,6 +88,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   **Eligible:** comma-separated track ids/descriptions; append `(∥)` when multiple parallel-ready
     -   **Blocked:** `<track>` waits on `<depends_on>` — omit section if none
     -   **Unmerged branches:** for tracks whose `metadata.json` records `git.branch`, list those not merged into `git.base` (`git branch --no-merged <base>`) — omit if none
+    -   **Out of date:** when `doctor` is not `clean`, one line: "Conductor files predate <plugin_version> (<n> items): run `/conductor:conductor-setup` to upgrade." — omit when clean
     -   **Ready to archive:** ids from `archivable` in the `tracks` JSON, with "`/conductor:conductor-archive`" — omit if none
     -   **Blocked todos:** todos waiting on something external (`blocked` in each plan's JSON), as `<track> <todo>: <on>` — omit if none
     -   **Deferred checks:** hand checks the user postponed (`deferred` in each plan's JSON), as `<track> <phase>`; a track whose only open todos are deferred checks is "complete, unverified" — omit if none

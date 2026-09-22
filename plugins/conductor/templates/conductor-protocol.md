@@ -69,6 +69,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" backlog
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [--force]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" set-todo <plan> <todo_id> <status> [--sha <sha>] [--on <reason>]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" track-status <track_id> <pending|in_progress|completed>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor [--fix] [--stamp]
 ```
 
 | Subcommand | Replaces | Output |
@@ -79,6 +80,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" track-status <track_i
 | `backlog` | Grepping `backlog.md` for candidates | `items[]` with `slug`, `title`, `status` (`open` / `done` / `parked` / `gated` / `decided`), `line`, `section`; `open` count; `duplicates` |
 | `set-todo <plan> <id> <status>` | Hand-editing a todo's `status` with regex or heredocs | Edits that todo's lines in place; `--sha` appends the short SHA to `content`; `blocked` needs `--on <reason>` |
 | `track-status <track_id> <status>` | Editing the registry marker and `metadata.json` by hand | Sets `[ ]` / `[~]` / `[x]`, metadata `status`, and a real UTC `updated_at` |
+| `doctor [--fix] [--stamp]` | Noticing by hand that a project predates current conventions | `issues[]` (`fix`: `auto` / `skill` / `stamp`), `plugin_version`, `project_version`, `clean`; `--fix` applies the `auto` repairs; `--stamp` writes `<!-- conductor: <version> -->` into `index.md` |
 | `archive <track_id>` | Hand-moving the spec folder and editing the registry | Moves spec **and** plan into `conductor/archive/<id>/`, rewrites the entry as an `(archived)` ledger line; exit 3 with `needs_confirmation` (`not_completed`, `deferred_checks`) unless `--force` |
 
 Rules:
@@ -206,8 +208,7 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 1. **Read first.** Resolve the **Workflow** and read the Working Agreements table and **Standing rules**. Skip any prompt whose answer is recorded and name the recorded answer in your one-line status instead ("Branch: current, per Working Agreements").
 2. **Standing approval.** The table is the user's explicit authorization under the **Git Write Policy**. With `Commit approval: standing`, `git add` of the todo's files, `git commit`, `git notes add`, and plan commits for the track's own todos run without asking. It never covers `git push`, merge, rebase, reset, tag, branch deletion, or history rewrites: those always ask. Whenever commits are pushed, also offer `git push origin refs/notes/commits`: git does not push notes by default, and they are the task audit trail.
 3. **Conductor files.** Once per command, run `git check-ignore -q conductor/context/index.md`. Exit 0 means `local` whatever the table says (correct the table if it disagrees). With `local`, every "commit Conductor files" step is a silent no-op. Never suggest un-ignoring `conductor/`, and never write advice against ignoring it.
-4. **Projects without the section** (set up before it existed): add it once. Detect what can be detected (Conductor files via `check-ignore`; Red commits `never` for compiled languages or when history shows no failing-test commits), ask the rest in **one** User Prompt Protocol call of up to four questions (Commits with approval, Branch, Autonomy, Manual verification), write the section, and continue. Never ask again.
-   **Stale protocol sections:** such a project's Workflow also carries old copies of **Task Workflow** and **Phase Completion Verification and Checkpointing Protocol** (for example a `curl` hand check and empty checkpoint commits). In the same step, offer once, yes/no with a one-line summary, to replace just those two sections with the plugin template's current text. Every project-specific section (Working Agreements, Agent Skills, Development Commands, Standing rules, anything custom) stays untouched.
+4. **Projects set up by an older version** (no Working Agreements section, or `conductor_state.py doctor` reports issues): run the setup skill's **§4.0 Upgrade** inline, then continue with the original command. It adds Working Agreements, refreshes stale workflow sections while keeping project-specific ones, repairs old archives, and stamps the version. Never ask again once stamped.
 5. **Standing rules.** When the user states a rule meant to outlast the task ("never ask me to run tests as verification", "source .env.local before running"), finish the current step, then offer once, yes/no, to add it under **Standing rules**. Treat every standing rule as binding.
 6. **The session wins.** An explicit instruction in the current conversation overrides the table for this session. If it sounds durable, offer to record it.
 

@@ -15,6 +15,8 @@ import textwrap
 import unittest
 
 SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "conductor_state.py")
+RESUME = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "skills", "conductor-setup", "scripts", "resume.py")
 
 
 class Project:
@@ -27,8 +29,8 @@ class Project:
     with open(path, "w", encoding="utf-8") as fh:
       fh.write(textwrap.dedent(content).lstrip())
 
-  def run(self, *args):
-    proc = subprocess.run([sys.executable, SCRIPT, *args], cwd=self.root,
+  def run(self, *args, script=SCRIPT):
+    proc = subprocess.run([sys.executable, script, *args], cwd=self.root,
                           capture_output=True, text=True, check=False)
     return json.loads(proc.stdout), proc.returncode
 
@@ -344,6 +346,86 @@ class WriteSubcommands(unittest.TestCase):
     stamp = datetime.datetime.strptime(meta["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
         tzinfo=datetime.timezone.utc)
     self.assertGreaterEqual(stamp, before)
+
+
+class Doctor(unittest.TestCase):
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+    # A project set up on an early plugin version.
+    self.p.write("conductor/context/index.md", "# Project Context\n")
+    self.p.write("conductor/context/workflow.md", """
+        # Project Workflow
+
+        ### Phase Completion Verification and Checkpointing Protocol
+        6.  **Create Checkpoint Commit:** Suggested message: `conductor(checkpoint): Checkpoint end of Phase X`.
+
+        ## Development Commands
+        **AI AGENT INSTRUCTION: This section should be adapted to the project's specific language, framework, and build tools.**
+        """)
+    self.p.write("conductor/context/tracks.md", "# Tracks\n")
+    self.p.write("conductor/archive/grid_20260101/index.md",
+                 "- [Plan](../../plans/grid_a1b2c3.plan.md)\n")
+    self.p.write("conductor/plans/grid_a1b2c3.plan.md", "---\nname: Grid\n---\n")
+    self.p.write("conductor/context/backlog.md", """
+        - [ ] **Render markdown** — same text.
+        - [ ] **Widen the column** — kept.
+        - [ ] **Render markdown** — same text.
+        - [ ] **Widen the column** — different wording, so a person decides.
+        """)
+    self.p.write(".gitignore", "conductor/\n# Conductor artifacts under conductor/ are meant to be committed — do not ignore them.\n")
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def ids(self, out):
+    return sorted(i["id"] for i in out["issues"])
+
+  def read(self, rel):
+    with open(os.path.join(self.p.root, rel), encoding="utf-8") as fh:
+      return fh.read()
+
+  def test_reports_drift_from_older_conventions(self):
+    out, code = self.p.run("doctor")
+    self.assertEqual(code, 0)
+    self.assertFalse(out["clean"])
+    self.assertEqual(self.ids(out), [
+        "backlog_duplicates", "gitignore_contradiction", "no_agent_skills",
+        "no_working_agreements", "orphaned_plans", "stale_workflow_sections",
+        "unadapted_workflow", "unstamped_version"])
+
+  def test_fix_applies_only_mechanical_repairs(self):
+    out, code = self.p.run("doctor", "--fix")
+    self.assertEqual(code, 0, out)
+    self.assertTrue(os.path.exists(os.path.join(
+        self.p.root, "conductor/archive/grid_20260101/grid_a1b2c3.plan.md")))
+    self.assertIn("(./grid_a1b2c3.plan.md)", self.read("conductor/archive/grid_20260101/index.md"))
+    backlog = self.read("conductor/context/backlog.md")
+    self.assertEqual(backlog.count("Render markdown"), 1)
+    self.assertEqual(backlog.count("Widen the column"), 2)
+    self.assertNotIn("do not ignore", self.read(".gitignore"))
+    self.assertEqual(self.ids(out), [
+        "backlog_duplicates", "no_agent_skills", "no_working_agreements",
+        "stale_workflow_sections", "unadapted_workflow", "unstamped_version"])
+
+  def test_stamp_records_the_plugin_version(self):
+    out, _ = self.p.run("doctor", "--stamp")
+    self.assertIn(f"<!-- conductor: {out['plugin_version']} -->", self.read("conductor/context/index.md"))
+    self.assertNotIn("unstamped_version", self.ids(out))
+
+
+class SetupResume(unittest.TestCase):
+
+  def test_an_initialized_project_routes_to_the_upgrade_section(self):
+    with tempfile.TemporaryDirectory() as root:
+      p = Project(root)
+      p.write("conductor/context/index.md", "# Project Context\n")
+      p.write("conductor/context/tracks.md", "# Tracks\n")
+      out, code = p.run(script=RESUME)
+    self.assertEqual(code, 0)
+    self.assertTrue(out["initialized"])
+    self.assertEqual(out["target_section"], "4.0")
 
 
 if __name__ == "__main__":

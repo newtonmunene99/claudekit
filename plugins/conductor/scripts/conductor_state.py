@@ -12,6 +12,9 @@ Every subcommand prints ONE JSON object on stdout. Run from the project root.
                                               edit one todo's status in place (no YAML rewrite)
     conductor_state.py track-status <track_id> <pending|in_progress|completed>
                                               registry marker + metadata status + real UTC updated_at
+    conductor_state.py doctor [--fix] [--stamp]
+                                              drift from current conventions; --fix applies the
+                                              mechanical repairs, --stamp records the plugin version
     conductor_state.py archive <track_id> [--force]
                                               move spec + plan to conductor/archive/<id>/
                                               and leave an "(archived)" ledger line
@@ -34,6 +37,10 @@ SPECS_DIR = os.path.join("conductor", "specs")
 ARCHIVE_DIR = os.path.join("conductor", "archive")
 TRACKS_FILE = os.path.join(CONTEXT_DIR, "tracks.md")
 BACKLOG_FILE = os.path.join(CONTEXT_DIR, "backlog.md")
+INDEX_FILE = os.path.join(CONTEXT_DIR, "index.md")
+WORKFLOW_FILE = os.path.join(CONTEXT_DIR, "workflow.md")
+PLUGIN_JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           ".claude-plugin", "plugin.json")
 
 # Registry entries: "- [ ] **Track: desc**" (standard) or "## [ ] Track: desc" (legacy).
 # A programme entry may carry a trailing sequencing hint: "** — _order 2; after A_".
@@ -685,16 +692,175 @@ def cmd_track_status(args):
           "metadata": os.path.isfile(meta_path)}, 0
 
 
+# --- doctor ------------------------------------------------------------------
+
+VERSION_STAMP = re.compile(r"<!--\s*conductor:\s*(?P<v>[0-9][0-9A-Za-z.+-]*)\s*-->")
+# Phrases that only appear in workflow copies made by older plugin versions.
+STALE_WORKFLOW_MARKERS = (
+    "Create Checkpoint Commit",
+    "Commit Plan Update",
+    "curl -X POST http://localhost:8080",
+    "Agent Output Style** in templates/conductor-protocol.md (**",
+)
+GITIGNORE_CONTRADICTION = "meant to be committed"
+
+
+def _plugin_version():
+  try:
+    with open(PLUGIN_JSON, encoding="utf-8") as fh:
+      return json.load(fh).get("version")
+  except (OSError, ValueError):
+    return None
+
+
+def _orphaned_plans():
+  """Plans still in plans/ although their track's index already lives in archive/."""
+  found = []
+  for index in sorted(glob.glob(os.path.join(ARCHIVE_DIR, "*", "index.md"))):
+    m = INDEX_PLAN_LINK.search(read_text(index))
+    if m:
+      plan = os.path.normpath(os.path.join(os.path.dirname(index), m.group("path")))
+      if os.path.isfile(plan):
+        found.append({"plan": plan, "archive": os.path.dirname(index)})
+  return found
+
+
+def _backlog_blocks(lines):
+  """Splits backlog lines into (start, end) blocks: an item line plus its indented body."""
+  blocks = []
+  i = 0
+  while i < len(lines):
+    if BACKLOG_ITEM.match(lines[i]):
+      j = i + 1
+      while j < len(lines) and (not lines[j].strip() or lines[j][:1] in " \t"):
+        j += 1
+      blocks.append((i, j))
+      i = j
+    else:
+      i += 1
+  return blocks
+
+
+def _doctor_issues():
+  issues = []
+  plugin_version = _plugin_version()
+  if not os.path.isfile(INDEX_FILE):
+    return [{"id": "not_set_up", "fix": "skill", "detail": "run /conductor:conductor-setup"}], None
+  stamp = VERSION_STAMP.search(read_text(INDEX_FILE))
+  project_version = stamp.group("v") if stamp else None
+  if os.path.isfile(WORKFLOW_FILE):
+    workflow = read_text(WORKFLOW_FILE)
+    if "## Working Agreements" not in workflow:
+      issues.append({"id": "no_working_agreements", "fix": "skill",
+                     "detail": "workflow.md has no Working Agreements section"})
+    if "## Agent Skills" not in workflow:
+      issues.append({"id": "no_agent_skills", "fix": "skill",
+                     "detail": "workflow.md has no Agent Skills table"})
+    if "AI AGENT INSTRUCTION" in workflow:
+      issues.append({"id": "unadapted_workflow", "fix": "skill",
+                     "detail": "Development Commands still hold the template placeholder"})
+    stale = [m for m in STALE_WORKFLOW_MARKERS if m in workflow]
+    if stale:
+      issues.append({"id": "stale_workflow_sections", "fix": "skill",
+                     "detail": "workflow.md carries old protocol text: " + "; ".join(stale)})
+  for path, what in ((TRACKS_FILE, "tracks.md"), (BACKLOG_FILE, "backlog.md")):
+    if not os.path.isfile(path):
+      issues.append({"id": "missing_" + what.split(".")[0], "fix": "auto",
+                     "detail": f"{what} is missing"})
+  orphans = _orphaned_plans()
+  if orphans:
+    issues.append({"id": "orphaned_plans", "fix": "auto",
+                   "detail": ", ".join(o["plan"] for o in orphans)})
+  dups = cmd_backlog([])[0]["duplicates"]
+  if dups:
+    issues.append({"id": "backlog_duplicates", "fix": "auto",
+                   "detail": ", ".join(dups) + " (identical copies are removed; differing ones need a person)"})
+  if os.path.isfile(".gitignore") and GITIGNORE_CONTRADICTION in read_text(".gitignore"):
+    issues.append({"id": "gitignore_contradiction", "fix": "auto",
+                   "detail": ".gitignore says Conductor files must not be ignored"})
+  if project_version is None:
+    issues.append({"id": "unstamped_version", "fix": "stamp",
+                   "detail": "index.md does not record the Conductor version it follows"})
+  elif plugin_version and project_version != plugin_version:
+    issues.append({"id": "outdated_version", "fix": "stamp",
+                   "detail": f"project follows {project_version}, plugin is {plugin_version}"})
+  return issues, project_version
+
+
+def _write(path, text):
+  with open(path, "w", encoding="utf-8") as fh:
+    fh.write(text)
+
+
+def _doctor_fix():
+  fixed = []
+  for o in _orphaned_plans():
+    base = os.path.basename(o["plan"])
+    shutil.move(o["plan"], os.path.join(o["archive"], base))
+    index = os.path.join(o["archive"], "index.md")
+    _write(index, read_text(index).replace(f"../../plans/{base}", f"./{base}"))
+    fixed.append(f"moved {o['plan']} into {o['archive']}")
+  if os.path.isfile(BACKLOG_FILE):
+    lines = read_text(BACKLOG_FILE).replace("\r\n", "\n").split("\n")
+    seen, drop = set(), set()
+    for start, end in _backlog_blocks(lines):
+      key = "\n".join(line.rstrip() for line in lines[start:end]).strip()
+      if key in seen:
+        drop.update(range(start, end))
+      seen.add(key)
+    if drop:
+      _write(BACKLOG_FILE, "\n".join(l for i, l in enumerate(lines) if i not in drop))
+      fixed.append(f"removed {len(drop)} duplicated backlog lines")
+  if os.path.isfile(".gitignore") and GITIGNORE_CONTRADICTION in read_text(".gitignore"):
+    kept = [l for l in read_text(".gitignore").split("\n") if GITIGNORE_CONTRADICTION not in l]
+    _write(".gitignore", "\n".join(kept))
+    fixed.append("removed the 'do not ignore' line from .gitignore")
+  if not os.path.isfile(TRACKS_FILE):
+    _write(TRACKS_FILE, "# Project Tracks\n\nThis file tracks all major tracks for the project. "
+                        "Each track has its own spec and Conductor plan.\n\n---\n")
+    fixed.append("created tracks.md")
+  if not os.path.isfile(BACKLOG_FILE):
+    _write(BACKLOG_FILE, "# Backlog\n\nWork not yet promoted to a track. "
+                         "Format: Backlog Format in the Conductor protocol.\n")
+    fixed.append("created backlog.md")
+  return fixed
+
+
+def _doctor_stamp():
+  version = _plugin_version()
+  text = read_text(INDEX_FILE)
+  stamp = f"<!-- conductor: {version} -->"
+  text = VERSION_STAMP.sub(stamp, text, count=1) if VERSION_STAMP.search(text) else stamp + "\n" + text
+  _write(INDEX_FILE, text)
+  return f"stamped index.md with {version}"
+
+
+def cmd_doctor(args):
+  fixed = []
+  if "--fix" in args and os.path.isfile(INDEX_FILE):
+    fixed += _doctor_fix()
+  if "--stamp" in args and os.path.isfile(INDEX_FILE):
+    fixed.append(_doctor_stamp())
+  issues, project_version = _doctor_issues()
+  return {
+      "plugin_version": _plugin_version(),
+      "project_version": project_version,
+      "issues": issues,
+      "fixed": fixed,
+      "clean": not issues,
+  }, 0
+
+
 # --- main --------------------------------------------------------------------
 
 COMMANDS = {"tracks": cmd_tracks, "plan": cmd_plan, "verify-paths": cmd_verify_paths,
             "backlog": cmd_backlog, "archive": cmd_archive,
-            "set-todo": cmd_set_todo, "track-status": cmd_track_status}
+            "set-todo": cmd_set_todo, "track-status": cmd_track_status, "doctor": cmd_doctor}
 
 
 def main(argv):
   if len(argv) < 2 or argv[1] not in COMMANDS:
-    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|backlog|archive|set-todo|track-status> [args]"}))
+    print(json.dumps({"error": "usage: conductor_state.py <tracks|plan|verify-paths|backlog|archive|set-todo|track-status|doctor> [args]"}))
     return 1
   result, code = COMMANDS[argv[1]](argv[2:])
   print(json.dumps(result, indent=2))

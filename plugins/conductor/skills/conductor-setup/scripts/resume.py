@@ -3,8 +3,9 @@
 Run from the project root. Ported from gemini-cli-extensions/conductor and
 adapted to the claudekit layout (conductor/context/, conductor/specs/).
 Prints JSON: checklist, initialized, setup_complete, target_section, next_step.
-target_section mirrors the audit table in SKILL.md section 1.2 — "HALT" means
-the project is already initialized and setup must not re-run.
+target_section mirrors the audit table in SKILL.md section 1.2. "4.0" means the
+project is already initialized: setup upgrades it to current conventions and
+never regenerates its context or touches its tracks.
 """
 
 import glob
@@ -51,8 +52,8 @@ def determine_resumption():
   target_section = "2.0"
   next_step = "Project inception"
   if initialized:
-    target_section = "HALT"
-    next_step = None
+    target_section = "4.0"
+    next_step = "Upgrade to current conventions"
   else:
     for filename, section, step_name in chain:
       if checklist[filename]:
