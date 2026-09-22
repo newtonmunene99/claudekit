@@ -20,6 +20,7 @@ import sys
 
 CONTEXT_DIR = os.path.join("conductor", "context")
 SPECS_DIR = os.path.join("conductor", "specs")
+ARCHIVE_DIR = os.path.join("conductor", "archive")
 TRACKS_FILE = os.path.join(CONTEXT_DIR, "tracks.md")
 
 # Registry entries: "- [ ] **Track: desc**" (standard) or "## [ ] Track: desc" (legacy).
@@ -27,7 +28,8 @@ TRACKS_FILE = os.path.join(CONTEXT_DIR, "tracks.md")
 TRACK_LINE = re.compile(r"^(?:- |## )\[(?P<status>[ ~x])\]\s*(?P<rest>.+)$")
 BOLD_DESC = re.compile(r"^\*\*Track:\s*(?P<desc>.+?)\*\*")
 PLAIN_DESC = re.compile(r"^Track:\s*(?P<desc>.+?)\s*(?:—\s*_.*_\s*)?$")
-SPEC_LINK = re.compile(r"\(\.\./specs/(?P<id>[^/)]+)/(?:spec\.md|index\.md)\)")
+# Archived tracks may stay in the registry as a ledger line linking into archive/.
+SPEC_LINK = re.compile(r"\(\.\./(?:specs|archive)/(?P<id>[^/)]+)/(?:spec\.md|index\.md)\)")
 PLAN_LINK = re.compile(r"\((?P<path>\.\./plans/[^)]+\.plan\.md)\)")
 TERMINAL = {"completed"}
 
@@ -173,6 +175,11 @@ def cmd_tracks(_args):
     return {"error": f"{TRACKS_FILE} not found; run /conductor:conductor-setup"}, 1
   tracks = parse_registry(read_text(TRACKS_FILE))
   completed = {t["track_id"] for t in tracks if t["status"] == "completed" and t["track_id"]}
+  # Archiving may drop the registry entry; the archive folder still proves completion,
+  # so a depends_on on an archived track must not block forever.
+  if os.path.isdir(ARCHIVE_DIR):
+    completed.update(d for d in os.listdir(ARCHIVE_DIR)
+                     if os.path.isdir(os.path.join(ARCHIVE_DIR, d)))
   eligible, blocked = [], []
   for t in tracks:
     if t["status"] == "completed" or not t["track_id"]:
