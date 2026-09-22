@@ -40,7 +40,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
    - **Unverified:** assumptions still open. Mark them plainly; the next session re-checks these.
    - **Gotchas:** traps hit this session, one line each.
 2. **Next work is a backlog item** (no track in progress, or the user named one): append `Notes for next session (YYYY-MM-DD):` under that item in **Backlog**, with the same Verified / Unverified split. Research done this session for items not taken goes under those items too, so it is not lost.
-3. **Completed track not archived yet:** archive it per `/conductor:conductor-archive` (ask once if it has deferred checks).
+3. **Completed track not archived yet:** offer once to archive it per `/conductor:conductor-archive`; the user may have chosen to keep it in the registry.
 4. **Durable rules** the user stated this session and did not record yet: offer once, in one yes/no, to add them to **Standing rules**.
 5. **Git notes:** when the repo has a remote and local `refs/notes/commits` is ahead of `git ls-remote origin refs/notes/commits`, offer to push them (`git push origin refs/notes/commits`; always asks under the **Git Write Policy**).
 

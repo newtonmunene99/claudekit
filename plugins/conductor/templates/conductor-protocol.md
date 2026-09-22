@@ -74,11 +74,11 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor [--fix] [--sta
 
 | Subcommand | Replaces | Output |
 | ---------- | -------- | ------ |
-| `tracks` | Manual registry parse + **Eligible Tracks Protocol** steps 1–6 | `eligible` (sorted, `parallel_ready` flag), `blocked` (with `missing`), `in_progress`, `archivable`, `recommended`, `all_complete` |
-| `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`), `deferred`, `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
+| `tracks` | Manual registry parse + **Eligible Tracks Protocol** steps 1–6 | `tracks` (each with `git` from metadata), `eligible` (sorted, `parallel_ready` flag), `blocked` (with `missing`), `in_progress`, `archivable`, `recommended`, `all_complete` |
+| `plan <file>` | Reading frontmatter to count todos and pick the next one | `counts`, `next`, `ready`, `waiting` (with `blocked_by`; a `verify-*` todo also waits for the rest of its phase), `blocked` (`id`, `on`), `deferred` (`id`, `phase`), `phases` (from todo `phase` fields), `parallel_batch`, `review_rounds`, `sync_bookends_ok` |
 | `verify-paths <file>` | Path verification checklist `test -f` loop | `paths[]` with `verified` / `missing` / `create` / `line-out-of-range` and `suggestions`; exit 2 when anything is missing |
 | `backlog` | Grepping `backlog.md` for candidates | `items[]` with `slug`, `title`, `status` (`open` / `done` / `parked` / `gated` / `decided`), `line`, `section`; `open` count; `duplicates` |
-| `set-todo <plan> <id> <status>` | Hand-editing a todo's `status` with regex or heredocs | Edits that todo's lines in place; `--sha` appends the short SHA to `content`; `blocked` needs `--on <reason>` |
+| `set-todo <plan> <id> <status>` | Hand-editing a todo's `status` with regex or heredocs | Edits that todo's lines in place; `--sha <sha>` appends the short SHA to `content` (or replaces an `(uncommitted)` marker; `--sha uncommitted` writes that marker); `--attempts <n>`; `blocked` requires `--on <reason>` (exit 1 without it) |
 | `track-status <track_id> <status>` | Editing the registry marker and `metadata.json` by hand | Sets `[ ]` / `[~]` / `[x]`, metadata `status`, and a real UTC `updated_at` |
 | `doctor [--fix] [--stamp]` | Noticing by hand that a project predates current conventions | `issues[]` (`fix`: `auto` / `skill` / `stamp`), `plugin_version`, `project_version`, `clean`; `--fix` applies the `auto` repairs; `--stamp` writes `<!-- conductor: <version> -->` into `index.md` |
 | `archive <track_id>` | Hand-moving the spec folder and editing the registry | Moves spec **and** plan into `conductor/archive/<id>/`, rewrites the entry as an `(archived)` ledger line; exit 3 with `needs_confirmation` (`not_completed`, `deferred_checks`) unless `--force` |
@@ -89,7 +89,7 @@ Rules:
 2. Exit 1 = unreadable input (announce and use **Failure Policy**). Exit 2 from `verify-paths` = missing paths (present the fix table; do not proceed until resolved).
 3. Fallback (local dev): `./plugins/conductor/scripts/conductor_state.py` from the claudekit repo root.
 4. If `python3` is unavailable, announce it once and fall back to the manual steps in each protocol below.
-5. **State changes go through the script.** Change todo status with `set-todo` and track status with `track-status`, never with `sed`, `perl`, or a heredoc: hand edits have mangled plans and written placeholder timestamps.
+5. **State changes go through the script.** When `python3` is available, change todo status, SHAs, and `attempts` with `set-todo`, and track status with `track-status`. Never use `sed`, `perl`, or a heredoc on plans or the registry: those edits have mangled plans and written placeholder timestamps. Fields the script does not cover (`review_rounds`) are changed with a targeted Edit. The manual fallbacks in each skill apply only when `python3` is unavailable.
 
 ## Eligible Tracks Protocol
 
@@ -208,7 +208,7 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 1. **Read first.** Resolve the **Workflow** and read the Working Agreements table and **Standing rules**. Skip any prompt whose answer is recorded and name the recorded answer in your one-line status instead ("Branch: current, per Working Agreements").
 2. **Standing approval.** The table is the user's explicit authorization under the **Git Write Policy**. With `Commit approval: standing`, `git add` of the todo's files, `git commit`, `git notes add`, and plan commits for the track's own todos run without asking. It never covers `git push`, merge, rebase, reset, tag, branch deletion, or history rewrites: those always ask. Whenever commits are pushed, also offer `git push origin refs/notes/commits`: git does not push notes by default, and they are the task audit trail.
 3. **Conductor files.** Once per command, run `git check-ignore -q conductor/context/index.md`. Exit 0 means `local` whatever the table says (correct the table if it disagrees). With `local`, every "commit Conductor files" step is a silent no-op. Never suggest un-ignoring `conductor/`, and never write advice against ignoring it.
-4. **Projects set up by an older version** (no Working Agreements section, or `conductor_state.py doctor` reports issues): run the setup skill's **§4.0 Upgrade** inline, then continue with the original command. It adds Working Agreements, refreshes stale workflow sections while keeping project-specific ones, repairs old archives, and stamps the version. Never ask again once stamped.
+4. **Projects set up by an older version:** implement, new-track, and review check for a **Working Agreements** section in their setup step. When it is missing, they run the setup skill's **§4.0 Upgrade** inline, then continue with the original command. Status only reports drift (from `conductor_state.py doctor`) and never upgrades. It adds Working Agreements, refreshes stale workflow sections while keeping project-specific ones, repairs old archives, and stamps the version. Never ask again once stamped.
 5. **Standing rules.** When the user states a rule meant to outlast the task ("never ask me to run tests as verification", "source .env.local before running"), finish the current step, then offer once, yes/no, to add it under **Standing rules**. Treat every standing rule as binding.
 6. **The session wins.** An explicit instruction in the current conversation overrides the table for this session. If it sounds durable, offer to record it.
 
@@ -254,6 +254,8 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
 5. Follow **Git Write Policy** for all git commands.
 6. Do not add git-isolation todos to plans unless the user explicitly asked during new-track planning.
 7. Record the choice in `metadata.json` as `"git": {"branch": "<name>", "base": "<base>"}` so a resumed session and the track-finish step know where the work lives.
+8. **Worktree with Conductor files `local`:** the new worktree has no `conductor/` (it is gitignored). Keep Conductor state in the main checkout: run `conductor_state.py` and edit plans and the registry there, and write code in the worktree.
+9. **Commits `user`:** do not create the branch or worktree yourself; give the user the command and wait.
 
 ## Artifact Reference Policy
 
@@ -270,10 +272,10 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
 **Check before every commit, merge, PR, or tag:** search the staged diff and the message, for example:
 
 ```bash
-git diff --cached | grep -nE 'conductor/|[a-z0-9-]+_20[0-9]{6}\b|\b(ARCH|QW)-[0-9]+\b'
+git diff --cached -- . ':!conductor' ':!.gitignore' | grep -nE 'conductor/|[a-z0-9-]+_20[0-9]{6}\b|\b(ARCH|QW)-[0-9]+\b'
 ```
 
-On a hit, rewrite the text before committing. Before a merge, PR, or tag, run the same search over `git diff <base>..HEAD`, and check public docs and examples against **Product Guidelines** for internal names that should not ship.
+The pathspec leaves out Conductor's own files and the `.gitignore` line that keeps `conductor/` local; those are allowed to name it. On a hit, rewrite the text before committing, and check the commit message the same way. Before a merge, PR, or tag, run the same search over `git diff <base>..HEAD -- . ':!conductor' ':!.gitignore'`, and check public docs and examples against **Product Guidelines** for internal names that should not ship.
 
 ## Failure Policy
 

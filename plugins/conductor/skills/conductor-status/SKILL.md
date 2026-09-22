@@ -34,7 +34,7 @@ Locate plugin templates in this order:
 Use the **Deterministic Plumbing Protocol** in templates/conductor-protocol.md — status is plumbing, not judgment:
 
 1. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" tracks` → registry, eligible / parallel-ready / blocked, recommended next track.
-2. For each incomplete track with a `plan` path: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` → `counts`, `in_progress`, `next`, `phases`.
+2. For each incomplete track, and each track in `archivable` (completed, not archived yet), with a `plan` path: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` → `counts`, `in_progress`, `next`, `phases`, `blocked`, `deferred` (with `phase`). Completed tracks are where deferred checks usually sit.
 3. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor` → drift from current conventions (read-only).
 4. Only compose the summary from those JSON fields. Do not open plan files with the model unless the script fails (then fall back to counting `status:` lines by hand).
 
@@ -69,7 +69,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 **PROTOCOL: Follow this sequence to provide a status overview.**
 
 ### 2.1 Read Project Plan
-1.  **Run the scripts** per **Parsing Conductor Plans** above (`tracks`, then `plan` for each incomplete track). Both handle the standard `- [ ] **Track:` and legacy `## [ ] Track:` formats.
+1.  **Run the scripts** per **Parsing Conductor Plans** above (`tracks`, then `plan` for each incomplete or archivable track, then `doctor`). Both handle the standard `- [ ] **Track:` and legacy `## [ ] Track:` formats.
 2.  **Fallback only:** if the script errors, resolve the **Tracks Registry** and each **Conductor plan file** via the **Universal File Resolution Protocol** and count todo `status` values by hand.
 
 ### 2.2 Parse and Summarize Plan
@@ -87,7 +87,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   **Progress:** tasks_completed/tasks_total across active programme or all tracks (percentage)
     -   **Eligible:** comma-separated track ids/descriptions; append `(∥)` when multiple parallel-ready
     -   **Blocked:** `<track>` waits on `<depends_on>` — omit section if none
-    -   **Unmerged branches:** for tracks whose `metadata.json` records `git.branch`, list those not merged into `git.base` (`git branch --no-merged <base>`) — omit if none
+    -   **Unmerged branches:** for tracks whose `git` (in the `tracks` JSON) names a branch, list those not merged into `git.base` (`git branch --no-merged <base>`, read-only) — omit if none
     -   **Out of date:** when `doctor` is not `clean`, one line: "Conductor files predate <plugin_version> (<n> items): run `/conductor:conductor-setup` to upgrade." — omit when clean
     -   **Ready to archive:** ids from `archivable` in the `tracks` JSON, with "`/conductor:conductor-archive`" — omit if none
     -   **Blocked todos:** todos waiting on something external (`blocked` in each plan's JSON), as `<track> <todo>: <on>` — omit if none

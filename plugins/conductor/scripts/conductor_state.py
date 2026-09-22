@@ -8,7 +8,7 @@ Every subcommand prints ONE JSON object on stdout. Run from the project root.
     conductor_state.py plan <plan.md>         todo counts, in-progress, ready + parallel batches
     conductor_state.py verify-paths <file.md> repo paths cited in a plan or review exist
     conductor_state.py backlog                open / done / parked backlog items with stable slugs
-    conductor_state.py set-todo <plan.md> <todo_id> <status> [--sha <sha>] [--on <reason>]
+    conductor_state.py set-todo <plan.md> <todo_id> <status> [--sha <sha|uncommitted>] [--on <reason>] [--attempts <n>]
                                               edit one todo's status in place (no YAML rewrite)
     conductor_state.py track-status <track_id> <pending|in_progress|completed>
                                               registry marker + metadata status + real UTC updated_at
@@ -181,6 +181,8 @@ def parse_registry(text):
 def load_metadata(track_id):
   path = os.path.join(SPECS_DIR, track_id, "metadata.json")
   if not os.path.isfile(path):
+    path = os.path.join(ARCHIVE_DIR, track_id, "metadata.json")
+  if not os.path.isfile(path):
     return {}
   try:
     with open(path, encoding="utf-8") as fh:
@@ -194,6 +196,8 @@ def cmd_tracks(_args):
   if not os.path.isfile(TRACKS_FILE):
     return {"error": f"{TRACKS_FILE} not found; run /conductor:conductor-setup"}, 1
   tracks = parse_registry(read_text(TRACKS_FILE))
+  for t in tracks:
+    t["git"] = load_metadata(t["track_id"]).get("git") if t["track_id"] else None
   completed = {t["track_id"] for t in tracks if t["status"] == "completed" and t["track_id"]}
   # Archiving may drop the registry entry; the archive folder still proves completion,
   # so a depends_on on an archived track must not block forever.
@@ -259,6 +263,10 @@ def cmd_plan(args):
   for t in todos:
     counts[t.get("status") if t.get("status") in counts else "pending"] += 1
 
+  def is_verify(todo):
+    return str(todo["id"]).startswith("verify-") or bool(
+        re.search(r"manual verification", str(todo.get("content", "")), re.I))
+
   ready, waiting, blocked_ext = [], [], []
   for t in todos:
     if t.get("status") in TERMINAL:
@@ -269,6 +277,10 @@ def cmd_plan(args):
       blocked_ext.append({"id": t["id"], "on": t.get("blocked_on")})
       continue
     blockers = [b for b in as_list(t.get("blocked_by")) if b in by_id and b not in done]
+    # A phase's hand check runs last in its phase, whatever blocked_by says.
+    if is_verify(t) and t.get("phase") is not None:
+      blockers += [o["id"] for o in todos if o is not t and o.get("phase") == t.get("phase")
+                   and o["id"] not in done and not is_verify(o) and o["id"] not in blockers]
     unknown = [b for b in as_list(t.get("blocked_by")) if b not in by_id]
     entry = {
         "id": t["id"],
@@ -318,14 +330,22 @@ def cmd_plan(args):
     batch.append(r["id"])
     seen.update(r["files"])
 
-  phases = re.findall(r"^-\s+\*\*(?P<phase>[A-Za-z0-9_.-]+)\b[^*]*\*\*", body, flags=re.M)
+  phases = []
+  for t in todos:
+    if t.get("phase") is not None and str(t["phase"]) not in phases:
+      phases.append(str(t["phase"]))
+  if not phases:
+    section = re.search(r"^##\s+Phases\s*\n(?P<s>(?:[ \t]*-.*\n?)+)", body, flags=re.M)
+    if section:
+      phases = re.findall(r"^\s*-\s+\*\*(?P<p>[A-Za-z0-9_.-]+)", section.group("s"), flags=re.M)
   return {
       "plan": path,
       "name": fm.get("name"),
       "counts": counts,
       "total": len(todos),
       "in_progress": [t["id"] for t in todos if t.get("status") == "in_progress"],
-      "deferred": [t["id"] for t in todos if t.get("status") == "deferred"],
+      "deferred": [{"id": t["id"], "phase": t.get("phase")}
+                   for t in todos if t.get("status") == "deferred"],
       "blocked": blocked_ext,
       "next": next_todo,
       "ready": ready,
@@ -470,14 +490,14 @@ def cmd_backlog(_args):
     if not (m or h):
       continue
     rest = (m or h).group("rest").strip()
-    if m and m.group("status") == "x":
+    if re.search(r"do not re-propose|won'?t do|\bdecided\b", rest, re.I):
+      status = "decided"
+    elif m and m.group("status") == "x":
       status = "done"
     elif PARKED.match(rest) or re.search(r"\(paused\b", rest, re.I):
       status = "parked"
     elif re.search(r"_\(gated\b", rest):
       status = "gated"
-    elif re.search(r"do not re-propose|won'?t do|\bdecided\b", rest, re.I):
-      status = "decided"
     elif h and re.search(r"~~|\(promoted|\(done", rest, re.I):
       status = "done"
     else:
@@ -620,10 +640,15 @@ def cmd_set_todo(args):
   """Edits one todo's lines in place so the rest of the plan keeps its formatting."""
   sha, args = _flag(list(args), "--sha")
   on, args = _flag(args, "--on")
+  attempts, args = _flag(args, "--attempts")
   if len(args) != 3 or args[2] not in TODO_STATUSES:
     return {"error": "usage: conductor_state.py set-todo <plan.md> <todo_id> "
-                     f"<{'|'.join(TODO_STATUSES)}> [--sha <sha>] [--on <reason>]"}, 1
+                     f"<{'|'.join(TODO_STATUSES)}> [--sha <sha|uncommitted>] [--on <reason>] [--attempts <n>]"}, 1
   path, todo_id, status = args
+  if status == "blocked" and not on:
+    return {"error": "blocked needs --on <what it waits for>"}, 1
+  if attempts is not None and not attempts.isdigit():
+    return {"error": "--attempts takes a whole number"}, 1
   if not os.path.isfile(path):
     return {"error": f"plan not found: {path}"}, 1
   fm_text, body = split_frontmatter(read_text(path))
@@ -654,17 +679,25 @@ def cmd_set_todo(args):
       m = re.match(r"^(\s*content:\s*)(?P<v>.*)$", line)
       if m:
         v = m.group("v").rstrip()
-        v = (v[:-1] + f" ({sha})" + v[-1]) if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'" else f"{v} ({sha})"
+        if "(uncommitted)" in v:
+          v = v.replace("(uncommitted)", f"({sha})")
+        elif len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+          v = v[:-1] + f" ({sha})" + v[-1]
+        else:
+          v = f"{v} ({sha})"
         fields[i] = m.group(1) + v
         break
+  if attempts is not None:
+    set_field("attempts", attempts)
   if status == "blocked":
-    set_field("blocked_on", json.dumps(on or "unspecified"))
+    set_field("blocked_on", json.dumps(on))
   else:
     fields = [line for line in fields if not line.strip().startswith("blocked_on:")]
   new_fm = "\n".join(lines[:start + 1] + fields + lines[end:])
   with open(path, "w", encoding="utf-8") as fh:
     fh.write("---\n" + new_fm + "\n---\n" + body)
-  return {"plan": path, "todo": todo_id, "status": status, "sha": sha, "blocked_on": on}, 0
+  return {"plan": path, "todo": todo_id, "status": status, "sha": sha, "blocked_on": on,
+          "attempts": attempts}, 0
 
 
 def cmd_track_status(args):

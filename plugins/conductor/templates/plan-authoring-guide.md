@@ -91,7 +91,7 @@ Never split "write failing tests" and "implement" into separate todos: the red s
 
 Fold setup, configuration, and scaffolding into the todo whose deliverable needs them. Split only where a reviewer could reject one task while approving its neighbor.
 
-**Action-first todo text:** Start each `content` string with a verb ("Write failing tests for login", not "Login tests"). One deliverable per todo — no "and then" chains.
+**Action-first todo text:** Start each `content` string with a verb and name the behaviour ("Reject expired refresh tokens", not "Token tests"). One deliverable per todo — no "and then" chains.
 
 ## Prerequisite todos
 
@@ -222,7 +222,7 @@ After drafting the complete plan, hand this checklist to a **fresh verifier** pe
 2. **Placeholder scan:** No banned patterns above.
 3. **Type consistency:** Signatures and names match across tasks.
 4. **Sync bookends:** `conductor-sync-in-progress` is first; `conductor-sync-complete` is last.
-5. **Phase todos:** Manual verification todos exist for each phase when the workflow defines phase checkpointing.
+5. **Phase todos:** Every phase has a `verify-p<N>` todo whose `blocked_by` lists the phase's other todos. A plan without phases counts as one phase and gets one `verify` todo just before `conductor-sync-complete`.
 6. **Path verification:** All repo paths verified per checklist above; Path verification subsection present.
 7. **Prerequisites:** Vacuous-test risks have PREREQUISITE todos with evidence.
 8. **Test constraints:** No unbounded sleeps or undeclared network dependencies.

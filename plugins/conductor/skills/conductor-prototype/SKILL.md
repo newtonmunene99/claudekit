@@ -61,7 +61,7 @@ If ambiguous, **User Prompt Protocol** — default logic for backend decision tr
 
 ### 2.3 Git isolation
 
-1. Follow **Git Isolation Protocol** — propose branch `spike/<slug>` (slug from track id or decision title).
+1. Always use a `spike/<slug>` branch (slug from track id or decision title), whatever **Branch** says in **Working Agreements**: spike code must never land on the working branch. Create it under the **Git Write Policy**.
 2. Create/switch via Git Write Policy approval.
 3. Announce: spike is throwaway; nothing merges to main.
 
