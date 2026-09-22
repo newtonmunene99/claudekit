@@ -1,7 +1,6 @@
 ---
 name: conductor-validate-review
-description: Validate a code review document against the repository before creating a remediation programme
-disable-model-invocation: true
+description: Validate a code review document against the repository, finding by finding, before it becomes a Conductor remediation programme. Use when the user asks to validate a review in conductor/reviews/.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.

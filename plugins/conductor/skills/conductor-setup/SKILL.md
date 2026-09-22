@@ -1,7 +1,6 @@
 ---
 name: conductor-setup
-description: Scaffold project and set up the Conductor environment
-disable-model-invocation: true
+description: Set up Conductor in a project: product, tech stack, workflow, and working agreements under conductor/context/, then a first track. Use when the user asks to set up, initialise, or install Conductor in a repository.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.

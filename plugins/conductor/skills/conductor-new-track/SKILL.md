@@ -1,7 +1,6 @@
 ---
 name: conductor-new-track
-description: Create a new track with brainstorm, spec, and Conductor plan
-disable-model-invocation: true
+description: Create a new Conductor track: brainstorm the design, then write its spec and plan under conductor/. Use when the user asks to start, plan, or spec a new Conductor track, promote a backlog item to a track, or triage Conductor backlog items.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.

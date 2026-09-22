@@ -21,10 +21,11 @@ claude plugin eval . --ablation with-without --judge-model sonnet --allow-tools 
 
 ## Things to know
 
-- Every Conductor skill has `disable-model-invocation: true`, so the skill only
-  fires when the prompt starts with `/conductor:conductor-status`. The baseline
-  arm therefore sees "Unknown command" and scores 0 at no cost; Δ equals the
-  with-arm score for those cases.
+- Prompts start with the slash command (`/conductor:conductor-status`). The
+  baseline arm, which has no plugin, sees "Unknown command" and scores 0 at no
+  cost, so Δ equals the with-arm score for those cases. Since the skills became
+  model-invocable (all but revert), a prompt without the slash command can also
+  load a skill; the negative case checks that an unrelated question does not.
 - Cases run in an empty sandbox. Each prompt carries its fixture files inline
   and asks the agent to write them first, which is why `Write` must be granted
   with `--allow-tools`. `allowed_tools` in prompt.md alone is not a grant.

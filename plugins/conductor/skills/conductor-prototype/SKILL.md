@@ -1,7 +1,6 @@
 ---
 name: conductor-prototype
-description: Run a throwaway spike for a Conductor decision track on an isolated branch
-disable-model-invocation: true
+description: Run a throwaway spike for a Conductor decision track on an isolated spike/<slug> branch and record the evidence. Use when a Conductor decision track calls for a prototype, or the user asks to spike an option for one.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.

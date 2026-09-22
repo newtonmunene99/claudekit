@@ -1,7 +1,6 @@
 ---
 name: conductor-implement
-description: Execute tasks from a track's Conductor plan
-disable-model-invocation: true
+description: Execute the next todos of a Conductor track plan (conductor/plans/*.plan.md) with TDD, commits, and phase checkpoints. Use when the user asks to implement, continue, resume, or proceed with a Conductor track or its next task, including after a context compaction in the middle of a track.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.
