@@ -1,6 +1,6 @@
 ---
 name: conductor-setup
-description: Set up Conductor in a project: product, tech stack, workflow, and working agreements under conductor/context/, then a first track. Use when the user asks to set up, initialise, or install Conductor in a repository.
+description: Set up Conductor in a project (product, tech stack, workflow, and working agreements under conductor/context/, then a first track), or upgrade an already set-up project to current Conductor conventions. Use when the user asks to set up, initialise, install, or upgrade Conductor in a repository.
 ---
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resolution, git policy, and output style.
@@ -110,7 +110,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 | Artifact Exists | Target Section | Announcement |
 | :--- | :--- | :--- |
-| `tracks.md` exists, or any `conductor/specs/<track_id>/` contains `spec.md` | **HALT** | "The project is already initialized. Use `/conductor:conductor-new-track` or `/conductor:conductor-implement`." |
+| `tracks.md` exists, or any `conductor/specs/<track_id>/` contains `spec.md` | **Section 4.0** | "Conductor is already set up here. Checking it against current conventions." |
 | `index.md` (top-level) | **Section 3.0** | "Resuming setup: Scaffolding is complete. Next: generate the first track. (Note: If an incomplete track folder was detected, we will restart this step to ensure a clean, consistent state)." |
 | `workflow.md` | **Section 2.6** | "Resuming setup: Workflow is defined. Next: select Agent Skills." |
 | `code_styleguides/` | **Section 2.5** | "Resuming setup: Guides/Tech Stack configured. Next: define project workflow." |
@@ -119,7 +119,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 | `product.md` | **Section 2.2** | "Resuming setup: Product Guide is complete. Next: create Product Guidelines." |
 | (None) | **Section 2.0** | (None) |
 
-5. **Proceed to Section 2.0:** You MUST proceed to Section 2.0 to establish the Greenfield/Brownfield context before jumping to your target.
+5. **Proceed to Section 2.0:** You MUST proceed to Section 2.0 to establish the Greenfield/Brownfield context before jumping to your target. **Exception:** when the target is Section 4.0, jump there directly; an initialized project needs no inception.
 
 ---
 
@@ -507,7 +507,7 @@ Before §2.1, use the **User Prompt Protocol** once:
 ## 3.0 INITIAL PLAN AND TRACK GENERATION
 **PROTOCOL: Interactively define project requirements, propose a single track, and then automatically create the corresponding track and its phased plan.**
 
-**Pre-Requisite (Cleanup):** If you are resuming this section after an interrupted setup, check `conductor/specs/` for leftover track folders. A track folder may be deleted ONLY if it is both incomplete (missing `spec.md` or `metadata.json`) and not registered in `conductor/context/tracks.md`. Never delete the whole `conductor/specs/` directory, and never delete a complete or registered track folder — if one exists, the project is already initialized: HALT per §1.2. Confirm via the **User Prompt Protocol** before deleting anything.
+**Pre-Requisite (Cleanup):** If you are resuming this section after an interrupted setup, check `conductor/specs/` for leftover track folders. A track folder may be deleted ONLY if it is both incomplete (missing `spec.md` or `metadata.json`) and not registered in `conductor/context/tracks.md`. Never delete the whole `conductor/specs/` directory, and never delete a complete or registered track folder — if one exists, the project is already initialized: go to §4.0. Confirm via the **User Prompt Protocol** before deleting anything.
 
 ### 3.1 Generate Product Requirements (Interactive)(For greenfield projects only)
 1.  **Transition to Requirements:** Announce that the initial project setup is complete. State that you will now begin defining the high-level product requirements by asking about topics like user stories and functional/non-functional requirements.
@@ -640,3 +640,20 @@ Before §2.1, use the **User Prompt Protocol** once:
 2.  **Save Conductor Files:** Only when **Conductor files** is `committed`: follow the **Git Write Policy** before staging and committing (`conductor(setup): Add conductor setup files`). When `local`, commit only the `.gitignore` change if there is one, under the Git Write Policy.
 3.  **Next Steps:** One line: "Run `/conductor:conductor-implement` to start the initial track `<track_id>`."
 
+---
+
+## 4.0 UPGRADE AN EXISTING PROJECT
+**PROTOCOL: Bring a project set up by an older Conductor version to current conventions without touching its tracks, specs, or plans' content.**
+
+1.  **Check:** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor`. If `clean`, announce "Conductor files are current (<plugin_version>)." and halt.
+2.  **Show and confirm once:** List the issues in plain words, at most 8 lines, then use the **User Prompt Protocol**: **Upgrade now (Recommended)** / **Not now**. On **Not now**, halt.
+3.  **Mechanical repairs:** Run `conductor_state.py doctor --fix`. It moves plans left behind by old archives into their archive folders, removes identical duplicate backlog items, removes `.gitignore` advice against ignoring `conductor/`, and creates a missing `tracks.md` or `backlog.md`. Report what it changed in one line per item.
+4.  **Judgment repairs**, for each remaining issue:
+    - `no_working_agreements`: run §2.5 step 5 against the existing `workflow.md` (detect first, then one prompt of up to four questions) and insert the **Working Agreements** section after **Agent Messages During Implementation**.
+    - `stale_workflow_sections`: replace **Task Workflow** and **Phase Completion Verification and Checkpointing Protocol** with the plugin template's current text. Before replacing, move any project-specific line inside them (a real command, a custom rule) into **Standing rules**, so nothing the user wrote is lost. Leave every other section as it is.
+    - `unadapted_workflow`: run §2.5 step 4b to fill Development Commands from the repo.
+    - `no_agent_skills`: add the template's **Agent Skills** section, then offer §2.6.
+    - `backlog_duplicates` still present: the remaining copies differ. Show each pair in one prompt and ask which wording to keep (or to merge them).
+5.  **Stamp:** Run `conductor_state.py doctor --stamp`; it records the plugin version at the top of `index.md`, so the next upgrade knows where this project stands.
+6.  **Commit:** When **Conductor files** is `committed`, one commit under the **Git Write Policy**: `conductor(setup): Upgrade to Conductor <version>`. A `.gitignore` change is committed in either mode, with approval.
+7.  **Announce:** "Upgraded to Conductor <version>: <n> changes." Then the next step from `conductor_state.py tracks` (`/conductor:conductor-implement <track_id>`, or `/conductor:conductor-new-track`).
