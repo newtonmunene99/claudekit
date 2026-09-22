@@ -355,7 +355,7 @@ Document errors, panics, and edge cases when the signature alone is insufficient
                     - **header:** "Commit Changes"
                     - **question:** "I've detected uncommitted changes. Should I commit them?"
                     - **type:** "yesno"
-                - If 'yes', follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing with `fix(conductor): Apply review suggestions <brief description of changes>`.
+                - If 'yes', follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing. The message describes the behaviour fixed in the code's own terms (e.g. `fix(auth): Reject expired refresh tokens`); never name the review, track, plan, or Conductor (see **Artifact Reference Policy** in templates/conductor-protocol.md).
                 - Proceed to '3.3 Track Cleanup'.
         b. **Handle Track-Specific Changes:**
             i.   **Confirm with User:** Immediately use the **User Prompt Protocol** (do not repeat the question in the chat):
@@ -370,7 +370,7 @@ Document errors, panics, and edge cases when the signature alone is insufficient
                      content: "Apply review suggestions"
                      status: in_progress
                    ```
-                 - **Commit Code:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing code changes (not the plan file). Suggested message: `fix(conductor): Apply review suggestions for track '<track_name>'`.
+                 - **Commit Code:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing code changes (not the plan file). The message describes the behaviour fixed (e.g. `fix(parser): Handle empty frontmatter`); never name the review, track, plan, or Conductor (see **Artifact Reference Policy** in templates/conductor-protocol.md).
                  - **Record SHA:** Set todo `status: completed` and append commit SHA to `content`.
                  - **Commit Plan Update:** Follow the **Git Write Policy** in templates/conductor-protocol.md before staging and committing the plan file. Suggested message: `conductor(plan): Mark review fixes complete`.
                  - **Announce Success:** "Review changes committed and tracked in the plan."

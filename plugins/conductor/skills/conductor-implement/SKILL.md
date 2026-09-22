@@ -103,14 +103,15 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 4.  **Select Track (Eligible Tracks Protocol):**
     -   **If a track name was provided:**
-        1.  Perform an exact, case-insensitive match for the provided name against the track descriptions you parsed.
+        1.  Match the argument against each track's `track_id` first (exact, case-insensitive), then against the track descriptions.
         2.  Resolve `<track_id>` and read `metadata.json`. If any `depends_on` track is not `[x]`, announce: "Track '<track_description>' is blocked. Complete `<missing_track_id>` first." Then use the **User Prompt Protocol** to pick from **eligible** tracks (see below) or halt.
-        3.  If a unique match is found and not blocked, immediately use the **User Prompt Protocol** to confirm the selection (do not repeat the question in the chat):
+        3.  **Exact `track_id` match, not blocked:** announce the track in one line and proceed. Do not ask for confirmation.
+        4.  **Unique description match only, not blocked:** use the **User Prompt Protocol** to confirm the selection (do not repeat the question in the chat):
             - **questions:**
                 - **header:** "Confirm"
                 - **question:** "I found track '<track_description>'. Is this correct?"
                 - **type:** "yesno"
-        4.  If no match is found, or if the match is ambiguous, immediately use the **User Prompt Protocol** to inform the user and request the correct track name (do not repeat the question in the chat):
+        5.  **No match, or an ambiguous match:** if the argument reads like a new piece of work rather than a track name, offer to create it: use the **User Prompt Protocol** with options **Create a new track** (then run `/conductor:conductor-new-track` with the argument) and **Pick an existing track**. Otherwise ask for the exact track name (do not repeat the question in the chat):
             - **questions:**
                 - **header:** "Clarify"
                 - **question:** "I couldn't find a unique track matching the name you provided. Did you mean '<next_available_track>'? Or please type the exact track name."
@@ -119,12 +120,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
         1.  **Compute eligible tracks** per **Eligible Tracks Protocol** in templates/conductor-protocol.md.
         2.  **If no incomplete tracks:** Announce: "No incomplete tracks found. All tasks are completed!" and halt.
         3.  **If incomplete tracks exist but none are eligible:** Announce: "All incomplete tracks are blocked. Complete `<track_id>` first (see sequencing table in tracks.md)." and halt.
-        4.  **If exactly one eligible track:** use the **User Prompt Protocol**:
-            - **questions:**
-                - **header:** "Next Track"
-                - **question:** "Next eligible track: '<track_description>'. Proceed?"
-                - **type:** "yesno"
-            - If declined, use the **User Prompt Protocol** `text` for exact track name.
+        4.  **If exactly one eligible track:** announce it in one line ("Implementing '<track_description>' (`<track_id>`), the only eligible track.") and proceed without asking. Running implement is the confirmation.
         5.  **If multiple eligible tracks:** use the **User Prompt Protocol** `choice` — one option per eligible track (label = track description; note **Parallel-ready** in description when sharing lowest `order`). Include option **Stop for now**. Put lowest-`order` track first (Recommended).
             - If user picks a track, proceed. If **Stop for now**, halt.
 

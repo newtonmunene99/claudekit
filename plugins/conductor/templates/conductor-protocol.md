@@ -92,7 +92,7 @@ Rules:
 5. **Sort eligible** by `order` ascending (null/`order` missing → treat as `999`), then registry order.
 6. **Parallel-ready:** eligible tracks sharing the lowest `order` among eligible tracks (programme table `∥` rows should use the same `order` value).
 
-**Implement selection:** When no track argument is given and multiple tracks are eligible, use the **User Prompt Protocol** with a numbered choice list — do not pick by file order alone. When exactly one eligible track, confirm with yes/no. When user names a blocked track, announce blockers and offer eligible picker.
+**Implement selection:** When no track argument is given and multiple tracks are eligible, use the **User Prompt Protocol** with a numbered choice list — do not pick by file order alone. When exactly one track is eligible, or the argument is an exact `track_id`, announce the track and proceed without a confirmation prompt. When user names a blocked track, announce blockers and offer eligible picker.
 
 **Continue after complete:** Never auto-advance without user confirmation. In §5.0 cleanup, add **combined options** when eligible next tracks exist (e.g. `Archive and continue to <track_id>`, `Skip and continue to <track_id>`). On continue, reset per-track git isolation and loop to §3.0.
 
@@ -208,6 +208,26 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
    - **Other** — User describes a custom team workflow
 4. Follow **Git Write Policy** for all git commands.
 5. Do not add git-isolation todos to plans unless the user explicitly asked during new-track planning.
+
+## Artifact Reference Policy
+
+**PROTOCOL:** Conductor artifacts are working notes, not part of the product. When `conductor/` is gitignored nobody else can see them, and even when committed they go stale as tracks are archived.
+
+**Never write these** into code, comments, docstrings, docs, commit messages, PR descriptions, tags, or git notes:
+
+- track, plan, or todo ids (`<slug>_YYYYMMDD`, `<slug>_<shortid>`, `verify-p2`), phase labels (`P3`, `C4`)
+- paths under `conductor/`, or "see tech-stack.md" / "per the plan" / "when the <x> track lands"
+- review finding ids (`ARCH-3`, `QW-2`, `§3.2`)
+
+**Instead**, state the invariant or reason itself: "Retries stop after 3 attempts because the upstream limit resets each minute", not "per decision in tech-stack.md". Commit messages describe behaviour in the code's own terms. The `conductor(...)` commit scope is only for commits that change Conductor files, which exist only when artifacts are committed.
+
+**Check before every commit, merge, PR, or tag:** search the staged diff and the message, for example:
+
+```bash
+git diff --cached | grep -nE 'conductor/|[a-z0-9-]+_20[0-9]{6}\b|\b(ARCH|QW)-[0-9]+\b'
+```
+
+On a hit, rewrite the text before committing. Before a merge, PR, or tag, run the same search over `git diff <base>..HEAD`, and check public docs and examples against **Product Guidelines** for internal names that should not ship.
 
 ## Failure Policy
 
