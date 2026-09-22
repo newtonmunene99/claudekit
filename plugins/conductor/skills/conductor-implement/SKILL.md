@@ -259,7 +259,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 2.  **Compute next tracks:** Apply **Eligible Tracks Protocol** in templates/conductor-protocol.md **before** prompting. Record eligible `<track_id>` + description list; note **parallel-ready** (∥) when multiple share lowest `order`.
 
-2b. **Finish the branch** (only when the track ran on a feature branch or worktree, per `metadata.json` `git`, and **Commits** is `agent`). **Run it after step 4 has handled the user's choice**, and after any review that choice started has finished, so review fixes land on the branch before it merges. Skip it for **Delete**, and for **Skip** unless the user asks:
+2b. **Finish the branch** (only when the track ran on a feature branch or worktree, per `metadata.json` `git`, and **Commits** is `agent`). **Step 4 runs it**: inside each handler, after the chosen action (the archive steps, or the review) and before that option's Halt or jump to §5.1, so review fixes land on the branch before it merges and the next track branches from the merged base. Skip it for **Delete**, and for **Skip** unless the user asks:
     1. Run the **Artifact Reference Policy** check over `git diff <base>..HEAD -- . ':!conductor' ':!.gitignore'` and fix any hit first.
     2. Use the **User Prompt Protocol**, header "Branch": **Merge into `<base>`** (fast-forward when possible; Recommended when the repo has no PR workflow), **Open a pull request** (when a remote and `gh` or the host CLI exist), **Leave the branch**.
     3. After a merge or PR, offer the follow-ups in **one** prompt (`multiSelect: true`): **Push `<base>`**, **Push git notes** (`git push origin refs/notes/commits`, so the per-task audit trail reaches the remote), **Delete the track branch**, and **Tag a release** only when the repo already tags releases (suggest the next tag from `git tag --sort=-v:refname`).
@@ -297,17 +297,17 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
     *   **Review:** Run the `/conductor:conductor-review` protocol now, in this turn, with this track as the confirmed scope (skip its scope prompts). When it finishes, return to this cleanup prompt without the Review option.
 
-    *   **Archive** (standalone): Execute archive steps (4a), commit, announce success. Halt.
+    *   **Archive** (standalone): Execute archive steps (4a), commit, finish the branch (2b), announce success. Halt.
 
     *   **Delete** (standalone): Confirm via the **User Prompt Protocol** `yesno`, then delete steps (4b). Halt unless cancelled.
 
     *   **Skip** (standalone): Announce completed track remains in tracks file. Halt.
 
-    *   **Skip and continue to `<track_id>`:** Announce leaving completed track in registry. Go to **§5.1 Continue** with that `<track_id>`.
+    *   **Skip and continue to `<track_id>`:** Announce leaving completed track in registry. Finish the branch (2b). Go to **§5.1 Continue** with that `<track_id>`.
 
-    *   **Archive and continue to `<track_id>`:** Execute archive steps (4a), commit, announce archived. Go to **§5.1 Continue** with that `<track_id>`.
+    *   **Archive and continue to `<track_id>`:** Execute archive steps (4a), commit, announce archived. Finish the branch (2b). Go to **§5.1 Continue** with that `<track_id>`.
 
-    *   **Choose next track…:** use the **User Prompt Protocol** `choice` — one option per eligible track + **Stop for now**. On track pick → if user also wants archive first, use the **User Prompt Protocol** `yesno`: "Archive '<completed_track>' before continuing?" — on yes run 4a then §5.1; on no §5.1. On stop → halt.
+    *   **Choose next track…:** use the **User Prompt Protocol** `choice` — one option per eligible track + **Stop for now**. On track pick → if user also wants archive first, use the **User Prompt Protocol** `yesno`: "Archive '<completed_track>' before continuing?" — on yes run 4a, then 2b, then §5.1; on no 2b, then §5.1. On stop → 2b, then halt.
 
     **4a. Archive steps:** Follow `/conductor:conductor-archive` §3.0–4.0 for this track: run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id>` (it moves the spec folder **and** the plan into `conductor/archive/<track_id>/` and turns the registry entry into an `(archived)` ledger line that keeps dependents unblocked), handle exit 3 as that skill describes, and commit only when **Conductor files** is `committed`.
 

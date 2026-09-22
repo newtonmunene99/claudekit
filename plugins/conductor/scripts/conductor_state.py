@@ -263,6 +263,9 @@ def cmd_plan(args):
   for t in todos:
     counts[t.get("status") if t.get("status") in counts else "pending"] += 1
 
+  # Sync bookends never run in parallel and must keep their frontmatter position.
+  sync_ids = {"conductor-sync-in-progress", "conductor-sync-complete"}
+
   def is_verify(todo):
     return str(todo["id"]).startswith("verify-") or bool(
         re.search(r"manual verification", str(todo.get("content", "")), re.I))
@@ -280,7 +283,8 @@ def cmd_plan(args):
     # A phase's hand check runs last in its phase, whatever blocked_by says.
     if is_verify(t) and t.get("phase") is not None:
       blockers += [o["id"] for o in todos if o is not t and o.get("phase") == t.get("phase")
-                   and o["id"] not in done and not is_verify(o) and o["id"] not in blockers]
+                   and o["id"] not in done and not is_verify(o) and o["id"] not in sync_ids
+                   and o["id"] not in blockers]
     unknown = [b for b in as_list(t.get("blocked_by")) if b not in by_id]
     entry = {
         "id": t["id"],
@@ -300,8 +304,6 @@ def cmd_plan(args):
     else:
       ready.append(entry)
 
-  # Sync bookends never run in parallel and must keep their frontmatter position.
-  sync_ids = {"conductor-sync-in-progress", "conductor-sync-complete"}
   ordered_ids = [t["id"] for t in todos]
   next_todo = ready[0] if ready else None
   stuck = [w for w in waiting if w.get("unknown_blockers")]

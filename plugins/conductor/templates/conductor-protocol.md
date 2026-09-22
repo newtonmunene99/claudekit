@@ -67,7 +67,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan conductor/plans/
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" verify-paths <plan-or-review.md> [--create-ok]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" backlog
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id> [--force]
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" set-todo <plan> <todo_id> <status> [--sha <sha>] [--on <reason>]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" set-todo <plan> <todo_id> <status> [--sha <sha|uncommitted>] [--on <reason>] [--attempts <n>]
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" track-status <track_id> <pending|in_progress|completed>
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor [--fix] [--stamp]
 ```

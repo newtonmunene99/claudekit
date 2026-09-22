@@ -110,7 +110,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 | Artifact Exists | Target Section | Announcement |
 | :--- | :--- | :--- |
-| `tracks.md` exists, or any `conductor/specs/<track_id>/` contains `spec.md` | **Section 4.0** | "Conductor is already set up here. Checking it against current conventions." |
+| `tracks.md` has a registered track (a `- [ ]` / `[~]` / `[x]` line), or any `conductor/specs/<track_id>/` contains `spec.md` | **Section 4.0** | "Conductor is already set up here. Checking it against current conventions." |
 | `index.md` (top-level) | **Section 3.0** | "Resuming setup: Scaffolding is complete. Next: generate the first track. (Note: If an incomplete track folder was detected, we will restart this step to ensure a clean, consistent state)." |
 | `workflow.md` | **Section 2.6** | "Resuming setup: Workflow is defined. Next: select Agent Skills." |
 | `code_styleguides/` | **Section 2.5** | "Resuming setup: Guides/Tech Stack configured. Next: define project workflow." |
@@ -598,7 +598,7 @@ Before §2.1, use the **User Prompt Protocol** once:
             - **CRITICAL:** Each todo must have `id`, `content`, and `status: pending`.
             - **CRITICAL:** The plan structure MUST adhere to `conductor/context/workflow.md` (TDD: one todo per behaviour, carrying its own failing test and landing as one green commit; `kind: refactor` for structure-only todos. See **One todo, one green commit** in the Workflow).
             - **CRITICAL: Mandatory sync bookends.** First todo MUST be `conductor-sync-in-progress`; last todo MUST be `conductor-sync-complete`. Do NOT inject git-isolation todos unless the user explicitly requested one.
-            - **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `id: verify-p<N>`, `phase: <N>`, `blocked_by` listing the phase's other todos, `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`. A plan without phases is one phase and gets one such todo before `conductor-sync-complete`. The script also holds a verify todo back until the rest of its phase is done.
+            - **CRITICAL: Inject Phase Completion Tasks.** If workflow defines "Phase Completion Verification and Checkpointing Protocol", add a todo per phase: `id: verify-p<N>`, `phase: <N>`, `blocked_by` listing the phase's other todos, `content: "Conductor - User Manual Verification '<Phase Name>' (Protocol in workflow.md)"`. A plan without phases is one phase and gets one such todo before `conductor-sync-complete`. When todos carry `phase`, the script also holds a verify todo back until the rest of its phase is done; without phases, `blocked_by` is the only guard.
             - **Drafts live on disk:** generate the Track ID (step c.i) first, write the spec and plan drafts to their final paths, then run the plan self-review and `conductor_state.py verify-paths <plan> --create-ok` against the written plan. Fix what they report before §3.4. Halt on unresolved paths.
     c. **Create Track Artifacts:**
         i. **Generate and Store Track ID:** Create a unique Track ID from the track description using format `shortname_YYYYMMDD` and store it. You MUST use this exact same ID for all subsequent steps for this track.
@@ -615,7 +615,7 @@ Before §2.1, use the **User Prompt Protocol** once:
             }
             ```
         Populate fields with actual values. Use the current timestamp.
-        iv. **Write Spec** to `conductor/specs/<track_id>/spec.md` and **Plan** to `conductor/plans/<slug>_<shortid>.plan.md`.
+        iv. **Keep the drafts:** the spec and plan are already written and verified at `conductor/specs/<track_id>/spec.md` and `conductor/plans/<slug>_<shortid>.plan.md`; do not rewrite them.
         v.  **Write Index File:** In the exact same directory, write `index.md` with content:
             ```markdown
             # Track <track_id> Context
@@ -652,4 +652,4 @@ Before §2.1, use the **User Prompt Protocol** once:
     - `backlog_duplicates` still present: the remaining copies differ. Show each pair in one prompt and ask which wording to keep (or to merge them).
 5.  **Stamp:** Run `conductor_state.py doctor --stamp`; it records the plugin version at the top of `index.md`, so the next upgrade knows where this project stands.
 6.  **Commit:** When **Conductor files** is `committed`, one commit under the **Git Write Policy**: `conductor(setup): Upgrade to Conductor <version>`. A `.gitignore` change is committed in either mode, with approval.
-7.  **Announce:** "Upgraded to Conductor <version>: <n> changes." Then the next step from `conductor_state.py tracks` (`/conductor:conductor-implement <track_id>`, or `/conductor:conductor-new-track`).
+7.  **Announce:** "Upgraded to Conductor <version>: <n> changes." Then the next step from `conductor_state.py tracks` (`/conductor:conductor-implement <track_id>`, or `/conductor:conductor-new-track`). When run inline, skip the next-step line and return to the calling command.
