@@ -55,7 +55,7 @@ isProject: true
 ---
 ```
 
-- `status` values: `pending`, `in_progress`, `completed`, and `deferred` (a phase hand check the user postponed; it blocks nothing)
+- `status` values: `pending`, `in_progress`, `completed`, `deferred` (a phase hand check the user postponed; it blocks nothing), and `blocked` (waiting on something outside the plan; `blocked_on` says what)
 - On task completion, set `status: completed` and append commit SHA to `content`
 - Markdown body below frontmatter carries phases, goals, architecture
 - Register plan path in `conductor/context/tracks.md`
@@ -162,10 +162,10 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 4.  **Execute Tasks and Update Track Plan:**
     a. **Announce:** One line: executing plan todos per **Workflow** (task index when known).
-    b. **Iterate Through Tasks:** Before each task, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` and take `next` — the first todo whose `blocked_by` are all completed (frontmatter order is the tie-break, not the rule). If `parallel_batch` is non-empty, run the **Parallel Dispatch Protocol** in templates/conductor-protocol.md (offer parallel via **User Prompt Protocol**; never assume). If `waiting` lists `unknown_blockers`, announce the misspelled id and ask before continuing. Track whether **Git Isolation** has run for the **current track** (`git_isolation_done`).
+    b. **Iterate Through Tasks:** Before each task, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" plan <plan>` and take `next` — the first todo whose `blocked_by` are all completed (frontmatter order is the tie-break, not the rule). If `parallel_batch` is non-empty, run the **Parallel Dispatch Protocol** in templates/conductor-protocol.md (offer parallel via **User Prompt Protocol**; never assume). If `waiting` lists `unknown_blockers`, announce the misspelled id and ask before continuing. If `next` is null and `blocked` lists todos waiting on something external, report them in one line ("<id> is blocked on <on>") and stop the track here: it stays `[~]`, and status shows the blocker. Track whether **Git Isolation** has run for the **current track** (`git_isolation_done`).
     c. **For Each Task:**
-        i. **`conductor-sync-in-progress`:** Update registry `[~]`, metadata `in_progress`, refresh `updated_at`. Mark todo `completed`. Follow **Git Write Policy** for any commit. Then run **Git Isolation** per step d if not yet done.
-        ii. **`conductor-sync-complete`:** For decision tracks (`track_role: decision` in metadata), verify no `spike/*` branch exists (`git branch --list 'spike/*'`). If spike branch exists, halt — run `/conductor:conductor-prototype` delete step first. Update registry `[x]`, metadata `completed`, refresh `updated_at`. Mark todo `completed`. Commit Conductor files only when **Conductor files** is `committed`. **Then continue to §4.0 and §5.0 in the same turn**: completing the bookend does not end the track, including after a context compaction.
+        i. **`conductor-sync-in-progress`:** `conductor_state.py track-status <track_id> in_progress` (registry `[~]`, metadata, real `updated_at`), then `set-todo <plan> conductor-sync-in-progress completed`. Follow **Git Write Policy** for any commit. Then run **Git Isolation** per step d if not yet done.
+        ii. **`conductor-sync-complete`:** For decision tracks (`track_role: decision` in metadata), verify no `spike/*` branch exists (`git branch --list 'spike/*'`). If spike branch exists, halt — run `/conductor:conductor-prototype` delete step first. `conductor_state.py track-status <track_id> completed`, then `set-todo <plan> conductor-sync-complete completed`. Commit Conductor files only when **Conductor files** is `committed`. **Then continue to §4.0 and §5.0 in the same turn**: completing the bookend does not end the track, including after a context compaction.
         iii. **All other todos:** Before the first implementation todo, if sync-in-progress is satisfied (registry `[~]`) and **Git Isolation** has not run, execute step d. Then follow the **Workflow** task lifecycle.
            - **CRITICAL:** Human-in-the-loop steps in the **Workflow** use the **User Prompt Protocol**, except hand checks, which are asked in plain chat (protocol rule 8).
            - **Before commit:** Run the **Independent Verification Protocol** for risky todos per the **Workflow** step 6b and **Verifier** in **Working Agreements**; other todos are verified per phase.
