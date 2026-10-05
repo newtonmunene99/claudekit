@@ -1,11 +1,11 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model. Use when the user wants to pin down domain terminology or a ubiquitous language, record an architectural decision, or when another skill needs to maintain the domain model.
+description: Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing the glossary (conductor/context/product.md or a GLOSSARY.md), or recording or editing a decision concept.
 ---
 
 # Domain Modeling
 
-Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* `conductor/context/product.md` (or repo-root `CONTEXT.md` if present) for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
+Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
 
 ## File structure
 
@@ -37,7 +37,7 @@ Create bundles lazily when the user asks for knowledge/project docs or when a de
 
 ### Challenge against the glossary
 
-When the user uses a term that conflicts with the existing language in `conductor/context/product.md` (or repo-root `CONTEXT.md` if present), call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+When the user uses a term that conflicts with the existing language in `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present), call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
 
 ### Sharpen fuzzy language
 
@@ -51,11 +51,11 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
 
-### Update CONTEXT.md inline
+### Update the glossary inline
 
-When a term is resolved, update `conductor/context/product.md` (or repo-root `CONTEXT.md` if present) right there. Don't batch these up — capture them as they happen. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+When a term is resolved, update `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) right there. Don't batch these up — capture them as they happen. Use the format in [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
 
-`conductor/context/product.md` (or repo-root `CONTEXT.md` if present) should be totally devoid of implementation details. Do not treat `conductor/context/product.md` (or repo-root `CONTEXT.md` if present) as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
+`conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) should be totally devoid of implementation details. Do not treat `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
 
 ### Offer OKF decision concepts sparingly
 
