@@ -260,6 +260,36 @@ describe('hud', () => {
     },
   }
 
+  // The real engine hands back its own drawing, which it refuses under a Box
+  // with a width: the band must still show over it.
+  test('draws over the engine band', async ($, on) => {
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs: 1, isLink: false } }))
+    on('process.run', ($, e) => ({
+      value: {
+        exitCode: 0,
+        stdout: JSON.stringify(e.argv.includes('tracks') ? TRACKS : planJson()),
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }))
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('ui.open', () => ({ value: { isPlaced: true } as never }))
+    on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+    await $.command.run({ command: 'conductor-board' } as never)
+    const band = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
+    })
+    expect(await band.find({ type: 'Text', text: /track-a/ })).toBeDefined()
+    await band.unmount()
+  })
+
   test('keeps the band a plugin beneath draws', { plugins: [beneath] }, async ($, on) => {
     engineDraws(on)
     on('session.root', () => ({ value: ROOT }))

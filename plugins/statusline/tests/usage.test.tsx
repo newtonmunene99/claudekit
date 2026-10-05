@@ -91,6 +91,16 @@ describe('band', () => {
     await ui.unmount()
   })
 
+  // The real engine hands back its own drawing, which it refuses under a Box
+  // with a width: the band must still show over it.
+  test('draws over the engine band', async ($, on) => {
+    stubUsage(on)
+    on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: /^5h$/ })).toBeDefined()
+    await ui.unmount()
+  })
+
   test('yields to a survey', async ($, on) => {
     stubUsage(on)
     engineDraws(on)
