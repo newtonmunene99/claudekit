@@ -179,6 +179,8 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !hasBand(s) || !s?.plan || (await read($, isBandHidden))) {
       return next(e)
     }
+    // Another plugin's band beneath stays, under this one.
+    const beneath = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const p = s.plan
     const filled = p.total ? Math.round((p.done / p.total) * 10) : 0
@@ -208,6 +210,7 @@ export const register: Register = on => {
             }} />
         </Box>
         <Text dimColor wrap="truncate-end">{nextLine}</Text>
+        {beneath}
       </Box>
     )
   })
