@@ -399,7 +399,7 @@ class WriteSubcommands(unittest.TestCase):
     self.p.run("set-todo", self.PLAN, "grid-rows", "completed")
     out, _ = self.p.run("plan", self.PLAN)
     self.assertIsNone(out["next"])
-    self.assertEqual(out["blocked"], [{"id": "grid-sort", "on": "upstream PR adk-go#812"}])
+    self.assertEqual(out["blocked"], [{"id": "grid-sort", "on": "upstream PR adk-go#812", "phase": None}])
 
   def test_set_todo_handles_block_lists_before_status(self):
     self.p.write(self.PLAN, """
