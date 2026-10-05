@@ -1,0 +1,15 @@
+{
+  "name": "autoname",
+  "version": "0.1.0",
+  "description": "Names a session Claude Code left unnamed: after the first turn, a short Haiku-made slug via /rename, and a matching /color.",
+  "author": { "name": "newtonmunene99" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "color": {
+      "type": "boolean",
+      "title": "Set a colour too",
+      "description": "Also set the session colour (/color), picked from the name so the same name gets the same colour.",
+      "default": true
+    }
+  }
+}

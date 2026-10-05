@@ -20,12 +20,13 @@ Then install the plugins you want:
 /plugin install conductor@claudekit
 /plugin install engineering@claudekit
 /plugin install mods@claudekit
+/plugin install autoname@claudekit
 ```
 
 ### Local development
 
 ```bash
-claude --plugin-dir ./plugins/conductor --plugin-dir ./plugins/engineering --plugin-dir ./plugins/mods
+claude --plugin-dir ./plugins/conductor --plugin-dir ./plugins/engineering --plugin-dir ./plugins/mods --plugin-dir ./plugins/autoname
 ```
 
 Inside Claude Code:
@@ -43,6 +44,7 @@ Inside Claude Code:
 | [**conductor**](plugins/conductor/) | Context-driven development: setup, spec, plan, implement, review, programmes, decision tracks |
 | [**engineering**](plugins/engineering/) | Grilling, research, prototype, architecture review (pairs with Conductor decision tracks) |
 | [**mods**](plugins/mods/) | General-purpose mods: a usage band above the prompt (5h/7d limits, context, tokens, cost) and folder, branch and model under it |
+| [**autoname**](plugins/autoname/) | Names unnamed sessions with a short Haiku-made slug (`/rename`) and a matching `/color` |
 
 See each plugin's README for skills, usage, and artifact layout.
 

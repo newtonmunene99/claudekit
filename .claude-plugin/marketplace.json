@@ -23,6 +23,11 @@
       "name": "mods",
       "source": "./plugins/mods",
       "description": "General-purpose Claude Code mods: usage band, folder, branch and model."
+    },
+    {
+      "name": "autoname",
+      "source": "./plugins/autoname",
+      "description": "Names unnamed sessions with a short Haiku-made slug and a matching colour."
     }
   ]
 }
