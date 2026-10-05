@@ -84,6 +84,18 @@ async function nudgeUpgrade($: EngineInterface): Promise<void> {
   )
 }
 
+// Shared by /conductor-board and the band's Board button. The button calls this
+// directly: a plugin's own $.command.run skips its own command.run hook, so the
+// command would come back unanswered.
+async function openBoard($: EngineInterface): Promise<string> {
+  await update($, isBandHidden, () => false)
+  await refresh($, true)
+  const opened = await $.ui.open({ id: PANE, title: 'Conductor' })
+  return opened.isPlaced
+    ? 'Conductor board opened.'
+    : 'Conductor board is waiting for a wider terminal.'
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -130,11 +142,14 @@ export const register: Register = on => {
     return ran
   })
 
+  // Always answers: a hook that throws is skipped, and the engine then says no
+  // hook answered the command, hiding the real failure.
   on('command.run', { command: 'conductor-board' }, async $ => {
-    await update($, isBandHidden, () => false)
-    await refresh($, true)
-    await $.ui.open({ id: PANE, title: 'Conductor' })
-    return { text: 'Conductor board opened.' }
+    try {
+      return { text: await openBoard($) }
+    } catch (err) {
+      return { text: `Conductor board could not open: ${err instanceof Error ? err.message : err}` }
+    }
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -163,7 +178,7 @@ export const register: Register = on => {
           </Text>
           {flags.length > 0 && <Text color="yellow">{flags.join(' · ')}</Text>}
           <Box flexGrow={1} />
-          <Button key="board" label="Board" hotkey="b" onPress={() => $.command.run({ command: 'conductor-board' })} />
+          <Button key="board" label="Board" hotkey="b" onPress={() => openBoard($)} />
           <Button key="hide" label="Hide" onPress={() => update($, isBandHidden, () => true)} />
         </Box>
         <Text dimColor wrap="truncate-end">{nextLine}</Text>
