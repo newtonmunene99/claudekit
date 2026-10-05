@@ -277,7 +277,7 @@ def cmd_plan(args):
     # Blocked on something outside the plan (an upstream PR, an access grant):
     # never ready until someone sets it back to pending.
     if t.get("status") == "blocked":
-      blocked_ext.append({"id": t["id"], "on": t.get("blocked_on")})
+      blocked_ext.append({"id": t["id"], "on": t.get("blocked_on"), "phase": t.get("phase")})
       continue
     blockers = [b for b in as_list(t.get("blocked_by")) if b in by_id and b not in done]
     # A phase's hand check runs last in its phase, whatever blocked_by says.

@@ -49,6 +49,21 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id>
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" doctor [--fix] [--stamp]
 ```
 
+## HUD (mods)
+
+On Claude Code builds with function hooks, the plugin also loads `hooks/register.tsx`, a mod that keeps the active track on screen. Everything it shows comes from `conductor_state.py`; it never parses plans itself, and it shows nothing in a repo without `conductor/context/tracks.md`.
+
+| Piece | What it does |
+| :---- | :----------- |
+| Status line | `conductor: <track> 7/12` for the track in progress, or the next eligible one |
+| Band above the prompt | Track, progress bar, blocked and deferred counts, the next todo; **Board** (`b`) and **Hide** buttons |
+| `/conductor-board` | Pane with next todo, parallel batch, waiting and blocked todos, deferred checks, other tracks, and buttons that fill in `/conductor:conductor-implement`, `review`, `archive` or `status` |
+| Toasts | Phase done, a todo newly blocked, review hitting its 2-round limit, track complete |
+| Upgrade nudge | At session start, a toast when `doctor` finds drift worth `/conductor:conductor-setup` |
+| Status guard | Denies Edit/Write/`sed -i`/redirects that change a todo's `status` in `conductor/plans/` or rewrite `tracks.md`, pointing at `set-todo`. New pending todos and other plan fields pass. It matches spellings, so it is a guardrail, not a boundary; it stays off when `python3` cannot run the script |
+
+It refreshes after each Edit, Write or Bash call and at the end of every turn, re-running the script only when `tracks.md` or the followed plan changed. Develop it with `claude plugin validate plugins/conductor` and `claude plugin test plugins/conductor`.
+
 ## Upgrading an existing project
 
 Run `/conductor:conductor-setup` again. On a project that is already set up it runs `doctor`, applies the mechanical repairs (plans stranded by old archives, duplicated backlog items, contradictory `.gitignore` advice), adds **Working Agreements**, refreshes stale workflow sections while keeping project-specific lines, and stamps the version in `conductor/context/index.md`. `/conductor:conductor-status` says when a project is out of date.

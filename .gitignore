@@ -4,3 +4,7 @@ plugins/*/evals*/results/
 
 # Python bytecode
 __pycache__/
+
+# Mod types and tsconfig the engine lays down on each load
+plugins/*/.claude-plugin/types/
+plugins/*/tsconfig.json
