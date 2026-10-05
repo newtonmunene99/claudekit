@@ -15,7 +15,7 @@ import { buildPills } from '../features/usage/pills'
 const NOW = Date.parse('2026-10-05T12:00:00Z')
 const at = (ms: number) => new Date(NOW + ms).toISOString()
 const H = 3_600_000
-const texts = (p: { parts: { text: string }[] }) => p.parts.map(x => x.text)
+const texts = (p?: { parts: { text: string }[] }) => p?.parts.map(x => x.text)
 
 describe('format', () => {
   test('shortens numbers', () => {
@@ -96,7 +96,7 @@ describe('pills', () => {
       NOW,
     )
     expect(texts(pills[0])).toEqual(['5h', '███████░', '91%'])
-    expect(pills[0].parts[1].level).toBe('high')
+    expect(pills[0]?.parts[1]?.level).toBe('high')
   })
 
   test('nothing measured yet: no pills', () => {
