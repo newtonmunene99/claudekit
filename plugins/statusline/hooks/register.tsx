@@ -130,8 +130,10 @@ export const register: Register = on => {
     if (pills.length === 0) return beneath
     const { Box, Text } = $.ui.resolve(e)
     return (
-      <Box flexDirection="column" width={e.props.bodyColumns}>
-        <Box flexDirection="row" flexWrap="wrap" gap={1}>
+      // No width on this outer box: the engine refuses its own drawing
+      // (beneath) under a Box with a width, and would drop the whole band.
+      <Box flexDirection="column">
+        <Box flexDirection="row" flexWrap="wrap" gap={1} width={e.props.bodyColumns}>
           {pills.map(p => (
             <Box key={p.key} flexDirection="row" gap={1} paddingX={1} backgroundColor={TONE[p.tone]}>
               {p.parts.map((part, i) => (

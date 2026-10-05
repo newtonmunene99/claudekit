@@ -193,23 +193,27 @@ export const register: Register = on => {
       ? `next: ${p.next.content}`
       : (p.blockedReason ?? 'all todos done; run review')
 
+    // No width on the outer box: the engine refuses its own drawing (beneath)
+    // under a Box with a width, and would drop the whole band.
     return (
-      <Box flexDirection="column" width={e.props.bodyColumns}>
-        <Box flexDirection="row" gap={1}>
-          <Text bold color="cyan">◆ {s.trackId}</Text>
-          <Text>
-            {'█'.repeat(filled)}
-            {'░'.repeat(10 - filled)} {p.done}/{p.total}
-          </Text>
-          {flags.length > 0 && <Text color="yellow">{flags.join(' · ')}</Text>}
-          <Box flexGrow={1} />
-          <Button key="board" label="Board" hotkey="b" onPress={() => openBoard($)} />
-          <Button key="hide" label="Hide" onPress={async () => {
-              await update($, isBandHidden, () => true)
-              await syncStatus($)
-            }} />
+      <Box flexDirection="column">
+        <Box flexDirection="column" width={e.props.bodyColumns}>
+          <Box flexDirection="row" gap={1}>
+            <Text bold color="cyan">◆ {s.trackId}</Text>
+            <Text>
+              {'█'.repeat(filled)}
+              {'░'.repeat(10 - filled)} {p.done}/{p.total}
+            </Text>
+            {flags.length > 0 && <Text color="yellow">{flags.join(' · ')}</Text>}
+            <Box flexGrow={1} />
+            <Button key="board" label="Board" hotkey="b" onPress={() => openBoard($)} />
+            <Button key="hide" label="Hide" onPress={async () => {
+                await update($, isBandHidden, () => true)
+                await syncStatus($)
+              }} />
+          </Box>
+          <Text dimColor wrap="truncate-end">{nextLine}</Text>
         </Box>
-        <Text dimColor wrap="truncate-end">{nextLine}</Text>
         {beneath}
       </Box>
     )
