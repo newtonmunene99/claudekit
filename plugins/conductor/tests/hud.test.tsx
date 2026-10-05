@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
+import type { Plugin } from 'claude-code/testing'
 
 import { changesStatus, isPlanPath, rewritesConductorFile } from '../hooks/guard'
 import { milestones, pickTrack, statusText, toSnapshot } from '../hooks/snapshot'
@@ -47,6 +48,15 @@ const TWO_IN_FLIGHT = {
     { description: 'Billing', status: 'in_progress', track_id: 'track-b', plan: PLAN_B },
   ],
   in_progress: ['track-a', 'track-b'],
+}
+
+
+// The engine's own drawing beneath every plugin: an empty box.
+function engineDraws(on: any): void {
+  on('ui.render', ($: any, e: any) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
 }
 
 describe('snapshot', () => {
@@ -119,6 +129,7 @@ describe('guard', () => {
 // a project root with conductor/, and the tool beneath the guard.
 describe('hud', () => {
   test('refreshes after a tool call, denies a hand status edit, draws the band', async ($, on) => {
+    engineDraws(on)
     const toasts: string[] = []
     let status: string | undefined
     on('session.root', () => ({ value: ROOT }))
@@ -193,6 +204,7 @@ describe('hud', () => {
   })
 
   test('moves to the newer track when a second one starts', async ($, on) => {
+    engineDraws(on)
     on('session.root', () => ({ value: ROOT }))
     on('fs.exists', () => ({ value: true }))
     on('fs.stat', ($, e) => ({
@@ -235,5 +247,45 @@ describe('hud', () => {
     expect(await board.find({ type: 'Text', text: /track-a 7\/12/ })).toBeDefined()
     expect(await board.find({ key: 'implement-track-a' })).toBeDefined()
     await board.unmount()
+  })
+
+  const beneath: Plugin = {
+    name: 'beneath',
+    tier: 'append',
+    register(on) {
+      on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+        const { Text } = $.ui.resolve(e)
+        return <Text>other band</Text>
+      })
+    },
+  }
+
+  test('keeps the band a plugin beneath draws', { plugins: [beneath] }, async ($, on) => {
+    engineDraws(on)
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs: 1, isLink: false } }))
+    on('process.run', ($, e) => ({
+      value: {
+        exitCode: 0,
+        stdout: JSON.stringify(e.argv.includes('tracks') ? TRACKS : planJson()),
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }))
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('ui.open', () => ({ value: { isPlaced: true } as never }))
+    await $.command.run({ command: 'conductor-board' } as never)
+    const band = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
+    })
+    expect(await band.find({ type: 'Text', text: /track-a/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: 'other band' })).toBeDefined()
+    await band.unmount()
   })
 })

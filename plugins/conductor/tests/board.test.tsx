@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'claude-code/testing'
 
+
+// The engine's own drawing beneath every plugin: an empty box.
+function engineDraws(on: any): void {
+  on('ui.render', ($: any, e: any) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+}
+
 describe('board command', () => {
   test('answers /conductor-board', async ($, on) => {
     on('session.root', () => ({ value: '/repo' }))
@@ -24,6 +33,7 @@ describe('board command', () => {
   })
 
   test('the band Board button opens the pane', async ($, on) => {
+    engineDraws(on)
     const opened: string[] = []
     on('session.root', () => ({ value: '/repo' }))
     on('fs.exists', () => ({ value: true }))
