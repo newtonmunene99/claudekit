@@ -54,9 +54,9 @@ export function addUsage(
 
 // "claude-opus-5-5" -> "Opus 5.5"; anything else is returned as given.
 export function modelName(id: string): string {
-  const m = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(id)
-  if (!m) return id
-  return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}`
+  const [, family, major, minor] = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(id) ?? []
+  if (!family || !major || !minor) return id
+  return `${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}.${minor}`
 }
 
 export function identityText(folder: string, branch: string | null, isDirty: boolean, model: string): string {
