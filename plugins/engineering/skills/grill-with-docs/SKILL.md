@@ -5,13 +5,12 @@ description: A relentless interview to sharpen a plan or design, which also crea
 
 Run a `/engineering:grilling` session, using the **domain-modeling** skill.
 
-**OKF deliverables** belong in **repo knowledge bundles**, not `conductor/` by default:
+**Decisions are local.** They go to the decision bundle `.adr/` at the repo root, which carries a `.gitignore` with `*`: never commit anything there unless the user asks (`git add -f <path>`). Create it lazily, `.gitignore` first.
 
-- Resolve `<bundle-root>` per Conductor **Knowledge Bundle Resolution** (`knowledge/` or `<pkg>/knowledge/`)
-- Decision concepts: `<bundle-root>/decisions/<slug>.md` (`type: Architecture Decision`)
+- Decision concepts: `.adr/decisions/<slug>.md` (`type: Architecture Decision`, optional `scope: <pkg path>`)
 - See Conductor's decision-concept template (`${CLAUDE_PLUGIN_ROOT}/../conductor/templates/knowledge/decision-concept.md`) and [OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
-- Update `<bundle-root>/decisions/index.md` and `<bundle-root>/log.md`
+- Update `.adr/decisions/index.md` and `.adr/log.md`
 
 When the user asks for **project docs** or **knowledge**, scaffold or extend the appropriate repo bundle — discover existing `**/knowledge/index.md` first.
 
-Glossary terms: `conductor/context/product.md` or repo `GLOSSARY.md` — not a substitute for OKF concept docs.
+Glossary terms: `conductor/context/product.md` or `.adr/GLOSSARY.md` — not a substitute for OKF concept docs.

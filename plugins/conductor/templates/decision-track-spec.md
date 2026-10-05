@@ -7,20 +7,20 @@ Follow [OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/
 ## Overview
 
 Settle one architectural question and record it as a durable OKF decision concept at
-**`<bundle-root>/decisions/<slug>.md`**.
+**`.adr/decisions/<slug>.md`**.
 
 ## Functional Requirements
 
 ### 4. Spike protocol
 
 - Run **`/conductor:conductor-prototype`** on `spike/<slug>` branch
-- Capture verdict to `<bundle-root>/decisions/evidence/<slug>.md` (`type: Decision Evidence`)
+- Capture verdict to `.adr/decisions/evidence/<slug>.md` (`type: Decision Evidence`)
 - Delete spike branch before `conductor-sync-complete`
 
 ### 5. Decision concept (OKF deliverable)
 
-- Run **`/engineering:grill-with-docs`** to produce `<bundle-root>/decisions/<slug>.md`
-- Update `<bundle-root>/decisions/index.md` and `log.md`
+- Run **`/engineering:grill-with-docs`** to produce `.adr/decisions/<slug>.md`
+- Update `.adr/decisions/index.md` and `.adr/log.md`
 
 ## Allowed production edits
 
@@ -28,7 +28,7 @@ Correcting false claims in **domain OKF bundles** (e.g. `<pkg>/knowledge/package
 
 ## Acceptance criteria
 
-- [ ] OKF decision concept at `<bundle-root>/decisions/<slug>.md` with required `type`
+- [ ] OKF decision concept at `.adr/decisions/<slug>.md` with required `type`
 - [ ] Bundle root is repo-scoped (`knowledge/` or `<pkg>/knowledge/`), not `conductor/knowledge/` unless placement guide fallback applies
 - [ ] Spike branch deleted; backlog references concept ID `decisions/<slug>`
 

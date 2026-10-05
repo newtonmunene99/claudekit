@@ -36,7 +36,7 @@ Follow **Agent Output Style** in templates/conductor-protocol.md. Line 1 = decis
 
 Run a **throwaway prototype** for a Conductor **decision track**. Delegates spike mechanics to the engineering `prototype` skill; adds Conductor guardrails (branch isolation, OKF evidence capture, delete-before-complete).
 
-Decision evidence is stored as OKF concepts at `<bundle-root>/decisions/evidence/<slug>.md`. Resolve `<bundle-root>` per **Knowledge Bundle Resolution** (e.g. `<pkg>/knowledge/`, repo `knowledge/`).
+Decision evidence is stored as OKF concepts at `.adr/decisions/evidence/<slug>.md`, in the local decision bundle (see **Decision Bundle** in templates/conductor-protocol.md; never commit it unless the user asks).
 
 **Git Write Policy** applies to branch create/delete.
 
@@ -79,7 +79,7 @@ If the engineering plugin files cannot be resolved (per **Plugin Template Path**
 
 ### 2.5 Capture verdict (OKF evidence concept)
 
-Write `<bundle-root>/decisions/evidence/<slug>.md`:
+Write `.adr/decisions/evidence/<slug>.md`:
 
 ```markdown
 ---
@@ -106,7 +106,7 @@ decision: decisions/<slug>
 <numbers, paths, what broke under each option>
 ```
 
-Update `<bundle-root>/log.md` with an **Update** entry.
+Update `.adr/log.md` with an **Update** entry.
 
 ### 2.6 Delete spike
 
@@ -120,4 +120,4 @@ Decision track `conductor-sync-complete` MUST NOT run while spike branch exists.
 
 ### 2.8 Completion
 
-Announce: "Spike verdict captured at `<bundle-root>/decisions/evidence/<slug>.md`. Next: `/engineering:grill-with-docs` for OKF decision concept."
+Announce: "Spike verdict captured at `.adr/decisions/evidence/<slug>.md`. Next: `/engineering:grill-with-docs` for OKF decision concept."

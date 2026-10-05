@@ -275,7 +275,7 @@ For each approved spec:
    - `/engineering:grilling` — stress-test options
    - `/engineering:research` — evidence gathering
    - `/conductor:conductor-prototype` — spike on `spike/<slug>` branch
-   - `/engineering:grill-with-docs` — write OKF decision concept at `<bundle-root>/decisions/<slug>.md`
+   - `/engineering:grill-with-docs` — write OKF decision concept at `.adr/decisions/<slug>.md`
 4. Do **not** ask Confirm Plan per track yet — proceed to §2.4b synthesis first.
 
 ### 2.4b Programme synthesis pass
@@ -291,15 +291,15 @@ For each approved spec:
 7. **Confirm Programme** — single **User Prompt Protocol** embedding sequencing table, dedup matrix, path fixes, decision/backlog summary.
 8. Revise until approved.
 
-### 2.5b Decision track scaffold (OKF knowledge bundle)
+### 2.5b Decision track scaffold (local decision bundle)
 
 When the track is a decision track (inside a programme, or standalone from the triage exit), at artifact write time:
 
-1. **Resolve bundle root** per **Knowledge Bundle Resolution** in templates/conductor-protocol.md (load `templates/knowledge/bundle-placement-guide.md`). Prefer `<pkg>/knowledge/` from review/track scope; else repo-root `knowledge/`.
-2. If no bundle exists, scaffold from `templates/knowledge/` at the resolved root (`index.md`, `log.md`, `decisions/index.md`).
-3. Link discovered bundle(s) from `conductor/context/index.md` (e.g. `[<pkg> knowledge](../../<pkg>/knowledge/)` — adjust relative path).
-4. Set `metadata.json`: `"track_role": "decision"`, `"deliverable": "<bundle-root>/decisions/<slug>.md"`.
-5. Add proposed entry to `<bundle-root>/decisions/index.md` and `<bundle-root>/log.md`.
+1. **Scaffold the decision bundle** if `.adr/` does not exist, per **Decision Bundle** in templates/conductor-protocol.md: copy `templates/adr/` to `.adr/` at the repo root, writing `templates/adr/gitignore` as `.adr/.gitignore` first (it holds `*`), then `index.md`, an empty `log.md` and `decisions/index.md`.
+2. **Never stage `.adr/`**: it is not covered by standing commit approval; commit a file there only when the user asks (`git add -f <path>`).
+3. Note the decision's package, if any, as `scope: <pkg path>` in its frontmatter (resolve it as **Knowledge Bundle Resolution** would).
+4. Set `metadata.json`: `"track_role": "decision"`, `"deliverable": ".adr/decisions/<slug>.md"`.
+5. Add proposed entry to `.adr/decisions/index.md` and `.adr/log.md`.
 6. Append backlog gating from `templates/backlog-gating-snippet.md`.
 
 Use `templates/knowledge/decision-concept.md` for the OKF deliverable shape (`type: Architecture Decision`).

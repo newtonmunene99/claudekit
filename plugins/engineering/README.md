@@ -29,13 +29,17 @@ Project and domain documentation use [OKF v0.1](https://github.com/GoogleCloudPl
 
 When the user asks for knowledge or project docs, **discover or scaffold at repo scope** — load the Conductor plugin's bundle placement guide if Conductor is installed (`${CLAUDE_PLUGIN_ROOT}/../conductor/templates/knowledge/bundle-placement-guide.md`).
 
+## Decisions and glossary stay local
+
+Decisions (ADRs, OKF decision concepts), spike evidence and the fallback glossary go to `.adr/` at the repo root, which holds a `.gitignore` with `*`. Nothing there is committed unless you ask. Project docs stay in repo knowledge bundles and are committed as usual.
+
 ## Context mapping
 
 | Legacy | OKF default |
 | ------ | ----------- |
-| `docs/adr/` | `<bundle-root>/decisions/<slug>.md` |
-| `GLOSSARY.md` | `conductor/context/product.md` or repo `GLOSSARY.md` + OKF overview concepts |
-| Explore subagent | `Task` + `subagent_type=explore` |
+| `docs/adr/` | `.adr/decisions/<slug>.md` |
+| `GLOSSARY.md` | `conductor/context/product.md`, else `.adr/GLOSSARY.md` |
+| Explore subagent | a sub-agent (the Explore agent where available) |
 
 ## Conductor integration
 
@@ -44,7 +48,7 @@ When the user asks for knowledge or project docs, **discover or scaffold at repo
 | Decision brainstorm | `/engineering:grilling` |
 | Evidence | `/engineering:research` |
 | Spike | `/conductor:conductor-prototype` |
-| OKF decision concept | `/engineering:grill-with-docs` → `<bundle-root>/decisions/<slug>.md` |
+| OKF decision concept | `/engineering:grill-with-docs` → `.adr/decisions/<slug>.md` |
 
 ## Attribution
 

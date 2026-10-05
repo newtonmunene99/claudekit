@@ -36,8 +36,10 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 - **Reviews Directory**: `conductor/reviews/`
 - **Review document**: `conductor/reviews/<slug>_YYYYMMDD-review.md` (a track's review record is `conductor/reviews/<track_id>-review.md`)
 - **Knowledge Bundle (OKF)**: resolve per **Knowledge Bundle Resolution** below — typically `knowledge/` at repo root or `<pkg>/knowledge/`. Not `conductor/knowledge/` by default.
-- **Decision concept**: `<bundle-root>/decisions/<slug>.md` (OKF concept ID: `decisions/<slug>`)
-- **Decision evidence**: `<bundle-root>/decisions/evidence/<slug>.md`
+- **Decision bundle**: `.adr/`, a local OKF bundle at the repo root (see **Decision Bundle** below)
+- **Decision concept**: `.adr/decisions/<slug>.md` (OKF concept ID: `decisions/<slug>`)
+- **Decision evidence**: `.adr/decisions/evidence/<slug>.md`
+- **Glossary fallback** (no Conductor glossary): `.adr/GLOSSARY.md`
 - **Specs Directory**: `conductor/specs/`
 - **Plans Directory**: `conductor/plans/`
 - **Archive Directory**: `conductor/archive/`
@@ -54,7 +56,7 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 - `depends_on` — array of `track_id` values that must be `[x]` before implement
 - `blocks` — array of `track_id` values this track gates
 - `track_role` — `implementation` | `decision` | `docs`
-- `deliverable` — for decision tracks: OKF concept path within resolved bundle (e.g. `<pkg>/knowledge/decisions/<slug>.md` or `knowledge/decisions/<slug>.md`)
+- `deliverable` — for decision tracks: the decision concept path, `.adr/decisions/<slug>.md`
 - `git` — `{"branch": "<name>", "base": "<base branch>"}`, written by the **Git Isolation Protocol** so resume and track finish know where the work lives
 
 ## Deterministic Plumbing Protocol
@@ -212,6 +214,28 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 4. **Projects set up by an older version:** implement, new-track, and review check for a **Working Agreements** section in their setup step. When it is missing, they run the setup skill's **§4.0 Upgrade** inline, then continue with the original command. Status only reports drift (from `conductor_state.py doctor`) and never upgrades. It adds Working Agreements, refreshes stale workflow sections while keeping project-specific ones, repairs old archives, and stamps the version. Never ask again once stamped.
 5. **Standing rules.** When the user states a rule meant to outlast the task ("never ask me to run tests as verification", "source .env.local before running"), finish the current step, then offer once, yes/no, to add it under **Standing rules**. Treat every standing rule as binding.
 6. **The session wins.** An explicit instruction in the current conversation overrides the table for this session. If it sounds durable, offer to record it.
+
+## Decision Bundle
+
+Decisions (ADRs, OKF decision concepts), spike evidence and the fallback glossary are local working records, not repo docs. They live in `.adr/` at the repo root, an OKF bundle of its own:
+
+```
+.adr/
+├── .gitignore          ← one line: *
+├── index.md            ← okf_version, title "Decisions", description
+├── log.md
+├── GLOSSARY.md         ← only when the project has no conductor/context/product.md
+└── decisions/
+    ├── index.md
+    ├── <slug>.md       ← type: Architecture Decision
+    └── evidence/
+        └── <slug>.md   ← type: Decision Evidence
+```
+
+1. **Create it lazily**, on the first decision, evidence or glossary term, with `.adr/.gitignore` containing exactly `*`. That file ignores the folder, itself included, so the repo's own `.gitignore` never changes.
+2. **Scope a decision** with an optional `scope: <pkg path>` frontmatter field rather than a folder per package; concept IDs stay `decisions/<slug>`.
+3. **Never stage or commit anything under `.adr/`** unless the user asks for that file in this conversation; then `git add -f <path>`, under the **Git Write Policy**. Standing commit approval does not cover it.
+4. Project and domain docs (overviews, package docs) stay in their **Knowledge Bundle** (`knowledge/`, `<pkg>/knowledge/`) and are committed as usual.
 
 ## Git Write Policy
 

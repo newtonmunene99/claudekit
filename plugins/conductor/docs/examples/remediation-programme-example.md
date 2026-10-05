@@ -7,8 +7,8 @@ Anonymized case study for Conductor programme mode: ~25 review findings → five
 | Artifact | Location |
 | -------- | -------- |
 | Domain knowledge | `<pkg>/knowledge/` (packages, concepts, operations) |
-| Decision deliverable (Track E) | `<pkg>/knowledge/decisions/<slug>.md` |
-| Spike evidence | `<pkg>/knowledge/decisions/evidence/<slug>.md` |
+| Decision deliverable (Track E) | `.adr/decisions/<slug>.md` |
+| Spike evidence | `.adr/decisions/evidence/<slug>.md` |
 | Conductor planning | `conductor/specs/`, `conductor/plans/`, `conductor/reviews/` |
 
 Decision tracks **extend the domain bundle** beside code — not `conductor/knowledge/`.
@@ -25,7 +25,7 @@ Decision tracks **extend the domain bundle** beside code — not `conductor/know
 
 ## Decision track E
 
-- Deliverable: `<pkg>/knowledge/decisions/<slug>.md` (`type: Architecture Decision`)
+- Deliverable: `.adr/decisions/<slug>.md` (`type: Architecture Decision`)
 - Correct false claims in existing concepts (e.g. `<pkg>/knowledge/packages/<component>.md`)
 - Backlog gates dependent refactors on concept ID `decisions/<slug>`
 

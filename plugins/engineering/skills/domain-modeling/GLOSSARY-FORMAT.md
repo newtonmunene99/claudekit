@@ -31,7 +31,7 @@ _Avoid_: Client, buyer, account
 
 ## Single vs multi-context repos
 
-**Single context (most repos):** One `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) at the repo root.
+**Single context (most repos):** One `conductor/context/product.md` (or `.adr/GLOSSARY.md` if present) at the repo root.
 
 **Multiple contexts:** A `GLOSSARY-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
 
@@ -54,7 +54,7 @@ _Avoid_: Client, buyer, account
 The skill infers which structure applies:
 
 - If `GLOSSARY-MAP.md` exists, read it to find contexts
-- If only a root `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) exists, single context
-- If neither exists, create a root `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) lazily when the first term is resolved
+- If only a root `conductor/context/product.md` (or `.adr/GLOSSARY.md` if present) exists, single context
+- If neither exists, create a root `conductor/context/product.md` (or `.adr/GLOSSARY.md` if present) lazily when the first term is resolved
 
 When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.

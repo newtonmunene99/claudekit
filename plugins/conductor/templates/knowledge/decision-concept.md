@@ -1,13 +1,6 @@
 # OKF Decision Concept Template
 
-Use for decision-track deliverables. Path is **inside the resolved knowledge bundle**.
-
-Resolve bundle root via `templates/knowledge/bundle-placement-guide.md`:
-
-| Scope | Example deliverable path | Concept ID |
-| ----- | ------------------------ | ---------- |
-| Domain package | `<pkg>/knowledge/decisions/<slug>.md` | `decisions/<slug>` |
-| Repository | `knowledge/decisions/<slug>.md` | `decisions/<slug>` |
+Use for decision-track deliverables. Path: `.adr/decisions/<slug>.md` (concept ID `decisions/<slug>`), in the local **Decision Bundle** (see the protocol): `.adr/` ignores itself, so the decision is never committed unless the user asks.
 
 [okf]: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
 
@@ -21,6 +14,7 @@ timestamp: YYYY-MM-DDTHH:MM:SSZ
 status: proposed
 track: <track_id>
 resource: <optional URI to primary code area>
+scope: <optional package path the decision is about>
 ---
 
 # <Title>
@@ -29,7 +23,7 @@ resource: <optional URI to primary code area>
 
 ## Evidence concepts
 
-`<bundle-root>/decisions/evidence/<slug>.md` with `type: Decision Evidence`.
+`.adr/decisions/evidence/<slug>.md` with `type: Decision Evidence`.
 
 ## Allowed production edits (decision tracks)
 
