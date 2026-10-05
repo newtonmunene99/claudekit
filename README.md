@@ -19,12 +19,13 @@ Then install the plugins you want:
 ```text
 /plugin install conductor@claudekit
 /plugin install engineering@claudekit
+/plugin install mods@claudekit
 ```
 
 ### Local development
 
 ```bash
-claude --plugin-dir ./plugins/conductor --plugin-dir ./plugins/engineering
+claude --plugin-dir ./plugins/conductor --plugin-dir ./plugins/engineering --plugin-dir ./plugins/mods
 ```
 
 Inside Claude Code:
@@ -41,6 +42,7 @@ Inside Claude Code:
 | :----- | :---------- |
 | [**conductor**](plugins/conductor/) | Context-driven development: setup, spec, plan, implement, review, programmes, decision tracks |
 | [**engineering**](plugins/engineering/) | Grilling, research, prototype, architecture review (pairs with Conductor decision tracks) |
+| [**mods**](plugins/mods/) | General-purpose mods: a usage band above the prompt (5h/7d limits, context, tokens, cost) and folder, branch and model under it |
 
 See each plugin's README for skills, usage, and artifact layout.
 
