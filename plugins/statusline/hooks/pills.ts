@@ -1,7 +1,7 @@
 // The band's content as plain data: which pills, in which order, with which
 // text. The render hook only maps these to elements.
 
-import type { UsageTokens } from '../../types'
+import type { UsageTokens } from '../types'
 import { barCells, countdown, level, shortNumber } from './format'
 
 export type Tone = 'green' | 'purple' | 'grey' | 'red' | 'blue' | 'yellow'

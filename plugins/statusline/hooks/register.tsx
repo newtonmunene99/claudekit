@@ -1,4 +1,5 @@
-// Usage band above the prompt and folder · branch · model under it. Engine
+// The status line, as a mod: usage pills above the prompt and folder ·
+// branch · model · name · id under it. Engine
 // figures are read live while drawing ($.session.usage() is free); events and
 // a timer only ask for a redraw.
 
@@ -9,9 +10,7 @@ import { ZERO_TOKENS, addUsage, identityText, modelName } from './format'
 import { buildPills } from './pills'
 import type { Tone } from './pills'
 
-export type On = Parameters<Register>[0]
-
-export const tokens = atom({ plugin: 'mods', key: 'usageTokens' } as const, ZERO_TOKENS)
+export const tokens = atom({ plugin: 'statusline', key: 'tokens' } as const, ZERO_TOKENS)
 
 // Soft backgrounds like the reference screenshot; bar colours by level.
 const TONE: Record<Tone, string> = {
@@ -25,8 +24,8 @@ const TONE: Record<Tone, string> = {
 const LEVEL = { ok: '#5a9a68', warn: '#c9a227', high: '#c8553d' } as const
 const INK = '#2b2b2b'
 
-export const identity = atom({ plugin: 'mods', key: 'usageIdentity' } as const, null)
-const title = atom({ plugin: 'mods', key: 'usageTitle' } as const, null)
+export const identity = atom({ plugin: 'statusline', key: 'identity' } as const, null)
+const title = atom({ plugin: 'statusline', key: 'title' } as const, null)
 
 async function git($: EngineInterface, root: string, args: string[]): Promise<string | null> {
   try {
@@ -73,7 +72,7 @@ function redraw($: EngineInterface): void {
   $.ui.invalidate('ui.render')
 }
 
-export function registerUsage(on: On): void {
+export const register: Register = on => {
   // Countdowns move with the clock, not with events.
   on('session.start', async ($, e, next) => {
     const started = await next(e)
