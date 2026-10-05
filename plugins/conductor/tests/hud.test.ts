@@ -43,7 +43,7 @@ describe('snapshot', () => {
     expect(s.trackId).toBe('track-a')
     expect(s.plan?.done).toBe(7)
     expect(s.plan?.openPhases).toEqual(['P2'])
-    expect(statusText(s)).toBe('conductor: track-a 7/12')
+    expect(statusText(s)).toBe('track-a 7/12')
   })
 
   test('announces a finished phase, a new blocker and the review limit', () => {
@@ -120,7 +120,8 @@ describe('hud', () => {
     on('tool.call', () => ({ result: { stdout: '', stderr: '', interrupted: false } as never }))
 
     await $.tool.call({ tool: 'Bash', tool_use_id: 't1', command: 'git status' } as never)
-    expect(status).toBe('conductor: track-a 7/12')
+    // The band shows the track, so the status line stays empty.
+    expect(status).toBeUndefined()
 
     const denied = await $.tool.call({
       tool: 'Edit',
@@ -155,6 +156,15 @@ describe('hud', () => {
       expect(await ui.find({ type: 'Text', text: /deferred check verify-p1/ })).toBeDefined()
       await ui.unmount()
     }
+    const band = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
+    })
+    await band.press({ key: 'hide' })
+    expect(status).toBe('track-a 7/12')
+    await band.unmount()
     expect(toasts).toEqual([])
   })
 })

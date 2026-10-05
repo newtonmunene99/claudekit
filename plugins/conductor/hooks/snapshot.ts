@@ -94,9 +94,16 @@ export function milestones(prev: ConductorSnapshot | null, next: ConductorSnapsh
   return out
 }
 
+// The engine already prefixes a plugin's status line with its name.
 export function statusText(s: ConductorSnapshot | null): string | undefined {
   if (!s?.trackId) return undefined
-  if (s.isInProgress && s.plan) return `conductor: ${s.trackId} ${s.plan.done}/${s.plan.total}`
-  if (s.isInProgress) return `conductor: ${s.trackId}`
-  return `conductor: next track ${s.trackId}`
+  if (s.isInProgress && s.plan) return `${s.trackId} ${s.plan.done}/${s.plan.total}`
+  if (s.isInProgress) return s.trackId
+  return `next track ${s.trackId}`
+}
+
+// The band shows the in-progress track's plan; the status line stands in for it
+// otherwise, so the two never repeat each other.
+export function hasBand(s: ConductorSnapshot | null): boolean {
+  return Boolean(s?.isInProgress && s.plan)
 }

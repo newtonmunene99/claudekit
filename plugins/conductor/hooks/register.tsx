@@ -7,7 +7,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import { changesStatus, denyReason, isPlanPath, rewritesConductorFile } from './guard'
-import { milestones, pickTrack, statusText, toSnapshot } from './snapshot'
+import { hasBand, milestones, pickTrack, statusText, toSnapshot } from './snapshot'
 
 type Json = Record<string, any>
 
@@ -33,6 +33,13 @@ async function runScript($: EngineInterface, args: string[]): Promise<Json | nul
   } catch {
     return null
   }
+}
+
+// The status line only while the band is not showing the same track.
+async function syncStatus($: EngineInterface): Promise<void> {
+  const s = await read($, snapshot)
+  const isBandShown = hasBand(s) && !(await read($, isBandHidden))
+  $.ui.status(isBandShown ? undefined : statusText(s))
 }
 
 async function mtime($: EngineInterface, path: string): Promise<number> {
@@ -65,7 +72,7 @@ async function refresh($: EngineInterface, force = false): Promise<void> {
   const plan = track?.plan ? await runScript($, ['plan', track.plan]) : null
   const next = toSnapshot(tracks, plan)
   await update($, snapshot, () => next)
-  $.ui.status(statusText(next))
+  await syncStatus($)
   for (const line of milestones(prev, next)) $.ui.toast(line, { timeoutMs: 6000 })
 }
 
@@ -154,7 +161,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const s = await read($, snapshot)
-    if (e.props.hasSurvey || !s?.isInProgress || !s.plan || (await read($, isBandHidden))) {
+    if (e.props.hasSurvey || !hasBand(s) || !s?.plan || (await read($, isBandHidden))) {
       return next(e)
     }
     const { Box, Button, Text } = $.ui.resolve(e)
@@ -179,7 +186,10 @@ export const register: Register = on => {
           {flags.length > 0 && <Text color="yellow">{flags.join(' · ')}</Text>}
           <Box flexGrow={1} />
           <Button key="board" label="Board" hotkey="b" onPress={() => openBoard($)} />
-          <Button key="hide" label="Hide" onPress={() => update($, isBandHidden, () => true)} />
+          <Button key="hide" label="Hide" onPress={async () => {
+              await update($, isBandHidden, () => true)
+              await syncStatus($)
+            }} />
         </Box>
         <Text dimColor wrap="truncate-end">{nextLine}</Text>
       </Box>
