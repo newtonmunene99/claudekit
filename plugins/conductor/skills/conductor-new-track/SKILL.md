@@ -149,7 +149,7 @@ After loading the track description, check for **programme mode**:
 
 4.  **Clarifying Questions:** Ask **one question per **User Prompt Protocol** call** (do not batch during brainstorm). Focus on purpose, constraints, and success criteria. Prefer multiple-choice when possible.
 5.  **Approaches:** Propose **2–3 options** with trade-offs and your recommendation.
-6.  **Section-by-Section Design:** Present architecture, data flow, error handling, and testing approach in sections. After each section, use the **User Prompt Protocol** for approval before continuing.
+6.  **Section-by-Section Design:** Present architecture, data flow, error handling, and testing approach in sections. Write each section as chat text in the same reply as its approval prompt: the new or changed types and functions by name, the behaviour, the edge cases, and every decision you made that the user did not choose. Working a section out in your reasoning is not presenting it; the user never sees your reasoning. Then use the **User Prompt Protocol** for approval, with the section's two or three key decisions in the question so it can be answered on its own. Never ask to approve a section the chat does not show.
 7.  **YAGNI Gate:** Even "simple" tracks get a design — it may be brief, but must be presented and approved.
 8.  **Transition:** Summarize the approved design, then proceed to §2.3.
 
