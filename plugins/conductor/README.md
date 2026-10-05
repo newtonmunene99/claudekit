@@ -55,7 +55,7 @@ On Claude Code builds with function hooks, the plugin also loads `hooks/register
 
 | Piece | What it does |
 | :---- | :----------- |
-| Status line | `conductor: <track> 7/12` for the track in progress, or the next eligible one |
+| Status line | `<track> 7/12` while the band is hidden, or the next eligible track when none is in progress |
 | Band above the prompt | Track, progress bar, blocked and deferred counts, the next todo; **Board** (`b`) and **Hide** buttons |
 | `/conductor-board` | Pane with next todo, parallel batch, waiting and blocked todos, deferred checks, other tracks, and buttons that fill in `/conductor:conductor-implement`, `review`, `archive` or `status` |
 | Toasts | Phase done, a todo newly blocked, review hitting its 2-round limit, track complete |
