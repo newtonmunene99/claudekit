@@ -21,3 +21,18 @@ export function colorFor(slug: string): (typeof COLORS)[number] {
   for (const ch of slug) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
   return COLORS[hash % COLORS.length] ?? 'blue'
 }
+
+// What the person asked for, from the transcript: their first three prompts
+// and the latest, with slash-command rows and image placeholders dropped.
+// Null when under 20 characters are left, too little to name from. Reading
+// the transcript, not the first prompt seen, keeps a mid-session install from
+// naming the session after whatever came next.
+export function namingText(messages: readonly { role: string; text: string }[]): string | null {
+  const prompts = messages
+    .filter(m => m.role === 'user' && !m.text.trimStart().startsWith('<'))
+    .map(m => m.text.replace(/\[Image #\d+\]/g, '').trim())
+    .filter(Boolean)
+  const picked = [...new Set([...prompts.slice(0, 3), ...prompts.slice(-1)])]
+  const text = picked.join('\n---\n').slice(0, 2000)
+  return text.replace(/\s/g, '').length >= 20 ? text : null
+}

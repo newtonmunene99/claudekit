@@ -5,18 +5,17 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import { colorFor, toSlug } from './slug'
+import { colorFor, namingText, toSlug } from './slug'
 
-const firstPrompt = atom({ plugin: 'autoname', key: 'firstPrompt' } as const, null)
 const hasTitle = atom({ plugin: 'autoname', key: 'hasTitle' } as const, false)
 const isTried = atom({ plugin: 'autoname', key: 'isTried' } as const, false)
 
 const ASK =
   'Name this coding session in 2 to 4 lowercase words joined by hyphens, like "protodb-null-fixes". ' +
-  'Reply with the name only.\n\nThe first request:\n'
+  'Reply with the name only.\n\nWhat the person asked for:\n'
 
-async function nameSession($: EngineInterface, prompt: string, isColor: boolean): Promise<void> {
-  const reply = await $.model.complete({ model: 'haiku', prompt: ASK + prompt.slice(0, 2000), maxTokens: 20 })
+async function nameSession($: EngineInterface, text: string, isColor: boolean): Promise<void> {
+  const reply = await $.model.complete({ model: 'haiku', prompt: ASK + text, maxTokens: 20 })
   const slug = reply.isAnswered ? toSlug(reply.text) : null
   if (!slug) return
   await $.command.run({ command: 'rename', args: slug })
@@ -38,19 +37,18 @@ export const register: Register = (on, options) => {
 
   on('classic.UserPromptSubmit', async ($, e, next) => {
     await noteTitle($, e.session_title)
-    if ((e.source === undefined || e.source === 'user') && !(await read($, firstPrompt))) {
-      await update($, firstPrompt, () => e.prompt)
-    }
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
-    const prompt = await read($, firstPrompt)
-    if (e.agentId || !prompt || (await read($, hasTitle)) || (await read($, isTried))) return done
+    if (e.agentId || (await read($, hasTitle)) || (await read($, isTried))) return done
+    // Too little to name from yet: keep the one attempt for a later turn.
+    const text = namingText(await $.session.messages())
+    if (!text) return done
     await update($, isTried, () => true)
     // In the background: the commands queue until the session is idle.
-    nameSession($, prompt, isColor).catch(() => {})
+    nameSession($, text, isColor).catch(() => {})
     return done
   })
 }

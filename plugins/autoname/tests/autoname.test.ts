@@ -1,13 +1,21 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { COLORS, colorFor, toSlug } from '../hooks/slug'
+import { COLORS, colorFor, namingText, toSlug } from '../hooks/slug'
 
 const ok = { isAnswered: true, usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } }
 const DONE = { turnId: 't1', answer: 'ok', durationMs: 1, reason: 'answer', isAborted: false }
 
 // Records the commands the feature runs and answers the model with `reply`.
-function stubEngine(on: any, reply: string | null): { commands: string[]; prompts: string[] } {
+const msg = (role: 'user' | 'assistant', text: string) => ({ role, text, toolUses: [] })
+const TOPIC = [msg('user', 'fix IS NULL in protodb filters'), msg('assistant', 'On it.')]
+
+function stubEngine(
+  on: any,
+  reply: string | null,
+  transcript: object[] = TOPIC,
+): { commands: string[]; prompts: string[] } {
   const seen = { commands: [] as string[], prompts: [] as string[] }
+  on('session.messages', () => ({ value: transcript }))
   on('classic.UserPromptSubmit', () => ({}))
   on('turn.complete', ($: unknown, e: { answer: string }) => ({ text: e.answer }))
   on('model.complete', ($: unknown, e: { prompt: string }) => {
@@ -40,6 +48,30 @@ describe('slug', () => {
   test('picks the same colour for the same slug', () => {
     expect(COLORS).toContain(colorFor('protodb-null-fixes'))
     expect(colorFor('protodb-null-fixes')).toBe(colorFor('protodb-null-fixes'))
+  })
+})
+
+describe('naming text', () => {
+  test('uses the person\'s first prompts and the latest, without commands or image placeholders', () => {
+    const text = namingText([
+      msg('user', 'fix IS NULL in protodb filters'),
+      msg('assistant', 'ok'),
+      msg('user', '<command-name>/rename</command-name>'),
+      msg('user', '[Image #4]'),
+      msg('user', 'also nested transactions [Image #5]'),
+      msg('user', 'and memadapter ordering'),
+      msg('user', 'push and update'),
+    ])
+    expect(text).toContain('fix IS NULL in protodb filters')
+    expect(text).toContain('also nested transactions')
+    expect(text).toContain('push and update')
+    expect(text).not.toContain('[Image')
+    expect(text).not.toContain('command-name')
+    expect(text).not.toContain('ok')
+  })
+
+  test('too little text: nothing to name from', () => {
+    expect(namingText([msg('user', '[Image #4]'), msg('user', 'hi')])).toBeNull()
   })
 })
 
@@ -87,5 +119,26 @@ describe('autoname', () => {
     await $.turn.complete(DONE as never)
     await settle($)
     expect(seen.commands).toEqual(['/rename protodb-null-fixes'])
+  })
+
+  test('names from the transcript, not from an image-only prompt seen mid-session', async ($, on) => {
+    const seen = stubEngine(on, 'protodb-null-fixes', [...TOPIC, msg('user', '[Image #4]')])
+    await $.classic.UserPromptSubmit({ prompt: '[Image #4]', source: 'user' } as never)
+    await $.turn.complete(DONE as never)
+    await settle($)
+    expect(seen.prompts[0]).toContain('fix IS NULL in protodb filters')
+    expect(seen.prompts[0]).not.toContain('[Image')
+  })
+
+  test('waits for enough text, then names on a later turn', async ($, on) => {
+    const transcript: object[] = [msg('user', '[Image #4]')]
+    const seen = stubEngine(on, 'protodb-null-fixes', transcript)
+    await $.turn.complete(DONE as never)
+    await settle($)
+    expect(seen.prompts.length).toBe(0)
+    transcript.push(msg('user', 'fix IS NULL in protodb filters'))
+    await $.turn.complete(DONE as never)
+    await settle($)
+    expect(seen.commands[0]).toBe('/rename protodb-null-fixes')
   })
 })
