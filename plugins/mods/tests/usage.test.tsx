@@ -167,6 +167,7 @@ function stubGit(on: any, branch: string | null, porcelain: string, sha = 'abc12
   on('clock.every', () => ({ value: undefined }))
   on('session.root', () => ({ value: '/Volumes/x/go-alis-build' }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('session.id', () => ({ value: '0087e2e3-f23a-4d0f-845c-4ac4f65d3981' }))
   on('process.run', ($: unknown, e: { argv: string[] }) => {
     const ok = (stdout: string) => ({
       value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
@@ -193,10 +194,10 @@ function captureTail(on: any): { tail?: string } {
 
 describe('identity', () => {
   for (const [name, branch, porcelain, expected] of [
-    ['adds folder, dirty branch and model to the hint line', 'main', ' M a.go\n', 'go-alis-build (main✗) · Opus 5.5'],
-    ['a clean branch has no mark', 'main', '', 'go-alis-build (main) · Opus 5.5'],
-    ['detached HEAD shows the short sha', '', '', 'go-alis-build (abc1234) · Opus 5.5'],
-    ['outside a git repo: folder and model only', null, '', 'go-alis-build · Opus 5.5'],
+    ['adds folder, dirty branch and model to the hint line', 'main', ' M a.go\n', 'go-alis-build (main✗) · Opus 5.5 · 0087e2e3'],
+    ['a clean branch has no mark', 'main', '', 'go-alis-build (main) · Opus 5.5 · 0087e2e3'],
+    ['detached HEAD shows the short sha', '', '', 'go-alis-build (abc1234) · Opus 5.5 · 0087e2e3'],
+    ['outside a git repo: folder and model only', null, '', 'go-alis-build · Opus 5.5 · 0087e2e3'],
   ] as const) {
     test(name, async ($, on) => {
       stubUsage(on)
@@ -216,6 +217,7 @@ function stubSession(on: any): void {
   on('clock.every', () => ({ value: undefined }))
   on('session.root', () => ({ value: '/Volumes/x/go-alis-build' }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('session.id', () => ({ value: '0087e2e3-f23a-4d0f-845c-4ac4f65d3981' }))
 }
 
 describe('identity refresh', () => {
@@ -266,6 +268,20 @@ describe('band updates', () => {
       changed: ['rateLimits'],
     } as never)
     expect(await ui.find({ type: 'Text', text: '61%' })).toBeDefined()
+    await ui.unmount()
+  })
+})
+
+describe('session name', () => {
+  test('shows the name a prompt carries, before the id', async ($, on) => {
+    stubUsage(on)
+    stubGit(on, 'main', '')
+    const seen = captureTail(on)
+    on('classic.UserPromptSubmit', () => ({}))
+    await $.session.start({ cwd: '/Volumes/x/go-alis-build' } as never)
+    await $.classic.UserPromptSubmit({ prompt: 'hi', session_title: 'protodb fixes' } as never)
+    const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+    expect(seen.tail).toBe('go-alis-build (main) · Opus 5.5 · protodb fixes · 0087e2e3')
     await ui.unmount()
   })
 })

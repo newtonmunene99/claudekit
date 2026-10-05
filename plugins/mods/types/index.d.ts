@@ -11,8 +11,11 @@ declare module 'claude-code' {
   interface PluginState {
     mods: {
       usageTokens: UsageTokens
-      // "<folder> (<branch>[✗]) · <model>", or null before the first reading.
+      // "<folder> (<branch>[✗]) · <model>[ · <title>] · <id8>", or null before
+      // the first reading.
       usageIdentity: string | null
+      // The session's name as the last session start or prompt carried it.
+      usageTitle: string | null
     }
   }
 }

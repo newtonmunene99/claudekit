@@ -18,7 +18,7 @@ A row of pills above the prompt, wrapping when the window is narrow:
 
 Bars turn yellow at 70% and red at 90%. A figure with no reading yet is left out. Token totals start at 0 when a session is resumed.
 
-Under the prompt, at the end of the hint line (terminal only): `folder (branch✗) · model`, with ✗ when git has uncommitted changes.
+Under the prompt, at the end of the hint line (terminal only): `folder (branch✗) · model · name · id`, with ✗ when git has uncommitted changes, the session's name when it has one (a `/rename` shows from the next prompt), and the first 8 characters of the session id.
 
 It replaces a hand-written `statusLine`: once it works for you, remove `statusLine` from `~/.claude/settings.json`.
 

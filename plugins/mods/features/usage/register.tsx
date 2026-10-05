@@ -26,6 +26,7 @@ const LEVEL = { ok: '#5a9a68', warn: '#c9a227', high: '#c8553d' } as const
 const INK = '#2b2b2b'
 
 export const identity = atom({ plugin: 'mods', key: 'usageIdentity' } as const, null)
+const title = atom({ plugin: 'mods', key: 'usageTitle' } as const, null)
 
 async function git($: EngineInterface, root: string, args: string[]): Promise<string | null> {
   try {
@@ -52,13 +53,20 @@ async function refreshIdentity($: EngineInterface): Promise<void> {
     branch = current || (await git($, root, ['rev-parse', '--short', 'HEAD']))
     isDirty = Boolean(status)
   }
-  const text = identityText(folder, branch, isDirty, model)
+  const text = identityText(folder, branch, isDirty, model, await read($, title), await $.session.id())
   if (text !== (await read($, identity))) await update($, identity, () => text)
 }
 
 // Git can be slow in a big repo: refresh in the background so no turn waits.
 function refreshIdentityLater($: EngineInterface): void {
   refreshIdentity($).catch(() => {})
+}
+
+async function noteTitle($: EngineInterface, name: string | undefined): Promise<void> {
+  const next = name?.trim() || null
+  if (next === (await read($, title))) return
+  await update($, title, () => next)
+  refreshIdentityLater($)
 }
 
 function redraw($: EngineInterface): void {
@@ -79,6 +87,18 @@ export function registerUsage(on: On): void {
     // A subagent's turn changes nothing the line shows.
     if (!e.agentId) refreshIdentityLater($)
     return done
+  })
+
+  // The session's name only arrives on these settings-hook events; a /rename
+  // shows from the next prompt on.
+  on('classic.SessionStart', async ($, e, next) => {
+    await noteTitle($, e.session_title)
+    return next(e)
+  })
+
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    await noteTitle($, e.session_title)
+    return next(e)
   })
 
   // Dim at the end of the engine's own hint line; the terminal draws it,
