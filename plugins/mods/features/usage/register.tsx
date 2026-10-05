@@ -45,11 +45,20 @@ async function refreshIdentity($: EngineInterface): Promise<void> {
   let branch: string | null = null
   let isDirty = false
   if ((await git($, root, ['rev-parse', '--is-inside-work-tree'])) === 'true') {
-    branch = (await git($, root, ['branch', '--show-current'])) || (await git($, root, ['rev-parse', '--short', 'HEAD']))
-    isDirty = Boolean(await git($, root, ['status', '--porcelain']))
+    const [current, status] = await Promise.all([
+      git($, root, ['branch', '--show-current']),
+      git($, root, ['status', '--porcelain']),
+    ])
+    branch = current || (await git($, root, ['rev-parse', '--short', 'HEAD']))
+    isDirty = Boolean(status)
   }
   const text = identityText(folder, branch, isDirty, model)
   if (text !== (await read($, identity))) await update($, identity, () => text)
+}
+
+// Git can be slow in a big repo: refresh in the background so no turn waits.
+function refreshIdentityLater($: EngineInterface): void {
+  refreshIdentity($).catch(() => {})
 }
 
 function redraw($: EngineInterface): void {
@@ -61,13 +70,14 @@ export function registerUsage(on: On): void {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     $.clock.every(30_000, () => redraw($))
-    await refreshIdentity($)
+    refreshIdentityLater($)
     return started
   })
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
-    await refreshIdentity($)
+    // A subagent's turn changes nothing the line shows.
+    if (!e.agentId) refreshIdentityLater($)
     return done
   })
 
