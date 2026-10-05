@@ -45,7 +45,7 @@ describe('band', () => {
       expect(await ui.find({ type: 'Text', text: /^5h$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^7d$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^ctx$/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /^│ ↻ 3h \d+m$/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^│ ↻ \d\d:\d\d$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^\$ 4\.71$/ })).toBeDefined()
       await ui.unmount()
     }

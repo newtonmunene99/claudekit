@@ -10,8 +10,8 @@ A row of pills, wrapping when the window is narrow:
 
 | Pill | Shows |
 | :--- | :---- |
-| `5h` | 5-hour limit: bar, % used, time to reset |
-| `7d` | weekly limit: bar, % used, time to reset |
+| `5h` | 5-hour limit: bar, % used, reset time (`↻ 19:20`) |
+| `7d` | weekly limit: bar, % used, reset day and time (`↻ Thu 19:00`) |
 | `ctx` | context window fill |
 | `↑` `↓` `≋` | this session's input, output and cache-read tokens |
 | `$` | this session's cost at API prices (what `/cost` shows) |

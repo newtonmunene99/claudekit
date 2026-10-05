@@ -4,7 +4,7 @@ import {
   ZERO_TOKENS,
   addUsage,
   barCells,
-  countdown,
+  resetTime,
   identityText,
   level,
   modelName,
@@ -25,12 +25,15 @@ describe('format', () => {
     expect(shortNumber(8_580_000)).toBe('8.58M')
   })
 
-  test('counts down by the two largest units', () => {
-    expect(countdown(at(3 * H + 57 * 60_000 + 5_000), NOW)).toBe('3h 57m')
-    expect(countdown(at(5 * 24 * H + 6 * H + 60_000), NOW)).toBe('5d 6h')
-    expect(countdown(at(12 * 60_000 + 30_000), NOW)).toBe('12m')
-    expect(countdown(at(-60_000), NOW)).toBeNull()
-    expect(countdown(undefined, NOW)).toBeNull()
+  test('shows when a limit resets, in local time', () => {
+    const at5h = new Date(NOW + 3 * H + 20 * 60_000)
+    const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    expect(resetTime(at5h.toISOString(), NOW, false)).toBe(hm(at5h))
+    const at7d = new Date(NOW + 3 * 24 * H)
+    const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at7d.getDay()]
+    expect(resetTime(at7d.toISOString(), NOW, true)).toBe(`${day} ${hm(at7d)}`)
+    expect(resetTime(at(-60_000), NOW, false)).toBeNull()
+    expect(resetTime(undefined, NOW, true)).toBeNull()
   })
 
   test('fills an 8-cell bar and colours it by threshold', () => {
@@ -83,8 +86,10 @@ describe('pills', () => {
   test('builds every pill in order', () => {
     const pills = buildPills(full, tokens, NOW)
     expect(pills.map(p => p.key)).toEqual(['5h', '7d', 'ctx', 'in', 'out', 'cache', 'cost'])
-    expect(texts(pills[0])).toEqual(['5h', '██░░░░░░', '25%', '│ ↻ 3h 57m'])
-    expect(texts(pills[1])).toEqual(['7d', '██░░░░░░', '27%', '│ ↻ 5d 6h'])
+    expect(texts(pills[0])).toEqual(['5h', '██░░░░░░', '25%', `│ ↻ ${resetTime(full.rateLimits[1]?.resetsAt, NOW, false)}`])
+    expect(texts(pills[1])).toEqual(['7d', '██░░░░░░', '27%', `│ ↻ ${resetTime(full.rateLimits[0]?.resetsAt, NOW, true)}`])
+    expect(texts(pills[1])?.[3]).toMatch(/^│ ↻ (Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d\d:\d\d$/)
+    expect(texts(pills[0])?.[3]).toMatch(/^│ ↻ \d\d:\d\d$/)
     expect(texts(pills[2])).toEqual(['ctx', '██░░░░░░', '25%'])
     expect(texts(pills[3])).toEqual(['↑ 214.3k'])
     expect(texts(pills[6])).toEqual(['$ 4.71'])
@@ -95,7 +100,7 @@ describe('pills', () => {
     expect(pills.map(p => p.key)).toEqual(['ctx', 'in', 'out', 'cache', 'cost'])
   })
 
-  test('a missing or past reset drops only the countdown', () => {
+  test('a missing or past reset drops only the reset time', () => {
     const pills = buildPills(
       { ...full, rateLimits: [{ kind: 'five_hour', percentUsed: 91, resetsAt: at(-1) }] },
       tokens,

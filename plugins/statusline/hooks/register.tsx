@@ -73,7 +73,7 @@ function redraw($: EngineInterface): void {
 }
 
 export const register: Register = on => {
-  // Countdowns move with the clock, not with events.
+  // A passed reset time drops off with the clock, not with an event.
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     $.clock.every(30_000, () => redraw($))

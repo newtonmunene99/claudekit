@@ -11,18 +11,16 @@ export function shortNumber(n: number): string {
   return `${(n / 1_000_000).toFixed(2)}M`
 }
 
-// The two largest units left until resetsAt; null when unknown or past.
-export function countdown(resetsAt: string | undefined, now: number): string | null {
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// When a limit resets, in local time: "19:20", or "Thu 19:00" with the day
+// for the weekly one. Null when unknown or already past.
+export function resetTime(resetsAt: string | undefined, now: number, isWithDay: boolean): string | null {
   if (!resetsAt) return null
-  const ms = Date.parse(resetsAt) - now
-  if (!Number.isFinite(ms) || ms <= 0) return null
-  const minutes = Math.floor(ms / 60_000)
-  const days = Math.floor(minutes / 1_440)
-  const hours = Math.floor((minutes % 1_440) / 60)
-  const mins = minutes % 60
-  if (days > 0) return `${days}d ${hours}h`
-  if (hours > 0) return `${hours}h ${mins}m`
-  return `${mins}m`
+  const at = new Date(resetsAt)
+  if (!Number.isFinite(at.getTime()) || at.getTime() <= now) return null
+  const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  return isWithDay ? `${DAYS[at.getDay()]} ${hm}` : hm
 }
 
 export function barCells(percent: number, width = 8): string {
