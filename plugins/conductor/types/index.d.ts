@@ -27,8 +27,21 @@ export type ConductorPlan = {
   blockedReason: string | null
 }
 
+// A track in progress other than the followed one, as the board lists it.
+export type ConductorTrackSummary = {
+  trackId: string
+  description: string | null
+  done: number
+  total: number
+  next: ConductorTodo | null
+}
+
 export type ConductorSnapshot = {
   trackId: string | null
+  // Every track in progress, in tracks.md order; trackId is the one followed.
+  inFlight: string[]
+  // The other tracks in flight, in tracks.md order.
+  others: ConductorTrackSummary[]
   description: string | null
   isInProgress: boolean
   plan: ConductorPlan | null

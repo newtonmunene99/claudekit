@@ -7,7 +7,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import { changesStatus, denyReason, isPlanPath, rewritesConductorFile } from './guard'
-import { hasBand, milestones, pickTrack, statusText, toSnapshot } from './snapshot'
+import { hasBand, inFlightPlans, milestones, pickTrack, statusText, toSnapshot } from './snapshot'
 
 type Json = Record<string, any>
 
@@ -19,6 +19,8 @@ const scriptPath = ($: EngineInterface) => `${$.plugin.root}/scripts/conductor_s
 
 // Module state resets on reload; session.start then fires again and refills it.
 let lastKey = ''
+// Plans of the tracks in progress at the last run; their mtimes are in the key.
+let watchedPlans: string[] = []
 // The guard only steers to set-todo when python3 can actually run it.
 let isScriptUsable = false
 
@@ -50,8 +52,8 @@ async function mtime($: EngineInterface, path: string): Promise<number> {
   }
 }
 
-// Re-runs the script only when tracks.md or the followed plan changed, so
-// calling this after every edit costs two stats.
+// Re-runs the script only when tracks.md or a plan in progress changed, so
+// calling this after every edit costs a few stats.
 async function refresh($: EngineInterface, force = false): Promise<void> {
   const root = await $.session.root()
   const tracksFile = `${root}/conductor/context/tracks.md`
@@ -61,16 +63,29 @@ async function refresh($: EngineInterface, force = false): Promise<void> {
     $.ui.status(undefined)
     return
   }
-  const planFile = prev?.plan ? `${root}/${prev.plan.path}` : null
-  const key = `${await mtime($, tracksFile)}:${planFile ? await mtime($, planFile) : 0}`
+  const planMtimes = async (plans: string[]) =>
+    Object.fromEntries(await Promise.all(plans.map(async p => [p, await mtime($, `${root}/${p}`)] as const)))
+  const watched = await planMtimes(watchedPlans)
+  const key = [await mtime($, tracksFile), ...watchedPlans.map(p => watched[p])].join(':')
   if (!force && key === lastKey) return
   lastKey = key
 
   const tracks = await runScript($, ['tracks'])
   if (!tracks || tracks.error) return
-  const track = pickTrack(tracks)
+  // tracks.md may have started or finished a track since the key was taken.
+  const plans = inFlightPlans(tracks)
+  const mtimes = plans.join() === watchedPlans.join() ? watched : await planMtimes(plans)
+  watchedPlans = plans
+  const track = pickTrack(tracks, mtimes)
   const plan = track?.plan ? await runScript($, ['plan', track.plan]) : null
-  const next = toSnapshot(tracks, plan)
+  // The board lists every track in flight, so read the others' plans too.
+  const others = ((tracks.tracks ?? []) as Json[]).filter(
+    t => t.plan && t.track_id !== track?.track_id && (tracks.in_progress ?? []).includes(t.track_id),
+  )
+  const otherPlans = Object.fromEntries(
+    await Promise.all(others.map(async t => [t.track_id, await runScript($, ['plan', t.plan])] as const)),
+  )
+  const next = toSnapshot(tracks, plan, mtimes, otherPlans)
   await update($, snapshot, () => next)
   await syncStatus($)
   for (const line of milestones(prev, next)) $.ui.toast(line, { timeoutMs: 6000 })
@@ -170,6 +185,7 @@ export const register: Register = on => {
     const flags = [
       p.blocked.length ? `${p.blocked.length} blocked` : '',
       p.deferred.length ? `${p.deferred.length} deferred` : '',
+      s.inFlight.length > 1 ? `+${s.inFlight.length - 1} in flight` : '',
     ].filter(Boolean)
     const nextLine = p.next
       ? `next: ${p.next.content}`
@@ -248,6 +264,29 @@ export const register: Register = on => {
             {header('Needs a person')}
             {p.blocked.slice(0, room).map(t => row(`blocked ${t.id}${t.on ? `: ${t.on}` : ''}`))}
             {p.deferred.slice(0, room).map(t => row(`deferred check ${t.id}${t.phase ? ` (phase ${t.phase})` : ''}`))}
+          </Box>
+        )}
+
+        {s.others.length > 0 && (
+          <Box flexDirection="column">
+            {header(`Also in progress (${s.others.length})`)}
+            {s.others.slice(0, room).map(t => (
+              <Box key={t.trackId} flexDirection="column">
+                <Box flexDirection="row" gap={1}>
+                  <Text color="cyan" wrap="truncate-end">
+                    {'  '}
+                    {t.trackId} {t.total ? `${t.done}/${t.total}` : ''}
+                  </Text>
+                  <Box flexGrow={1} />
+                  <Button
+                    key={`implement-${t.trackId}`}
+                    label="Implement"
+                    onPress={fill(`/conductor:conductor-implement ${t.trackId}`)}
+                  />
+                </Box>
+                {row(t.next ? `  next: ${t.next.content}` : '  nothing ready', true)}
+              </Box>
+            ))}
           </Box>
         )}
 
