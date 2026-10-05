@@ -150,3 +150,59 @@ describe('band', () => {
     await ui.unmount()
   })
 })
+
+const HINT = {
+  plugin: 'mods',
+  component: 'PromptHint',
+  props: { isDraft: false, isWorking: false, hint: '? for shortcuts' } as never,
+} as const
+
+// A repo at /Volumes/x/go-alis-build: branch null means not a git repo, ''
+// means detached HEAD.
+function stubGit(on: any, branch: string | null, porcelain: string, sha = 'abc1234'): void {
+  on('session.start', ($: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('clock.every', () => ({ value: undefined }))
+  on('session.root', () => ({ value: '/Volumes/x/go-alis-build' }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('process.run', ($: unknown, e: { argv: string[] }) => {
+    const ok = (stdout: string) => ({
+      value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+    })
+    if (branch === null) throw new Error('not a git repository')
+    if (e.argv.includes('--is-inside-work-tree')) return ok('true\n')
+    if (e.argv.includes('--show-current')) return ok(`${branch}\n`)
+    if (e.argv.includes('--short')) return ok(`${sha}\n`)
+    if (e.argv.includes('--porcelain')) return ok(porcelain)
+    return ok('')
+  })
+}
+
+// Draws the hint line as the engine would and keeps the tail it was handed.
+function captureTail(on: any): { tail?: string } {
+  const seen: { tail?: string } = {}
+  on('ui.render', ($: any, e: any) => {
+    if (e.component === 'PromptHint') seen.tail = e.props.tail
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  return seen
+}
+
+describe('identity', () => {
+  for (const [name, branch, porcelain, expected] of [
+    ['adds folder, dirty branch and model to the hint line', 'main', ' M a.go\n', 'go-alis-build (main✗) · Opus 5.5'],
+    ['a clean branch has no mark', 'main', '', 'go-alis-build (main) · Opus 5.5'],
+    ['detached HEAD shows the short sha', '', '', 'go-alis-build (abc1234) · Opus 5.5'],
+    ['outside a git repo: folder and model only', null, '', 'go-alis-build · Opus 5.5'],
+  ] as const) {
+    test(name, async ($, on) => {
+      stubUsage(on)
+      stubGit(on, branch, porcelain)
+      const seen = captureTail(on)
+      await $.session.start({ cwd: '/Volumes/x/go-alis-build' } as never)
+      const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+      expect(seen.tail).toBe(expected)
+      await ui.unmount()
+    })
+  }
+})

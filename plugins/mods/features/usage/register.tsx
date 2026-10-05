@@ -5,7 +5,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import { ZERO_TOKENS, addUsage } from './format'
+import { ZERO_TOKENS, addUsage, identityText, modelName } from './format'
 import { buildPills } from './pills'
 import type { Tone } from './pills'
 
@@ -25,6 +25,33 @@ const TONE: Record<Tone, string> = {
 const LEVEL = { ok: '#5a9a68', warn: '#c9a227', high: '#c8553d' } as const
 const INK = '#2b2b2b'
 
+export const identity = atom({ plugin: 'mods', key: 'usageIdentity' } as const, null)
+
+async function git($: EngineInterface, root: string, args: string[]): Promise<string | null> {
+  try {
+    const { stdout } = await $.process.run(['git', '-C', root, '--no-optional-locks', ...args], { timeoutMs: 3000 })
+    return stdout.trim()
+  } catch {
+    return null
+  }
+}
+
+// Folder, branch (short sha when detached, none outside a repo), dirty mark
+// and model, as the old status line script showed them.
+async function refreshIdentity($: EngineInterface): Promise<void> {
+  const root = await $.session.root()
+  const folder = root.split('/').filter(Boolean).pop() ?? root
+  const model = modelName(await $.session.model())
+  let branch: string | null = null
+  let isDirty = false
+  if ((await git($, root, ['rev-parse', '--is-inside-work-tree'])) === 'true') {
+    branch = (await git($, root, ['branch', '--show-current'])) || (await git($, root, ['rev-parse', '--short', 'HEAD']))
+    isDirty = Boolean(await git($, root, ['status', '--porcelain']))
+  }
+  const text = identityText(folder, branch, isDirty, model)
+  if (text !== (await read($, identity))) await update($, identity, () => text)
+}
+
 function redraw($: EngineInterface): void {
   $.ui.invalidate('ui.render')
 }
@@ -34,7 +61,21 @@ export function registerUsage(on: On): void {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     $.clock.every(30_000, () => redraw($))
+    await refreshIdentity($)
     return started
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    const done = await next(e)
+    await refreshIdentity($)
+    return done
+  })
+
+  // Dim at the end of the engine's own hint line; the terminal draws it,
+  // other surfaces ignore tail for now.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    const tail = await read($, identity)
+    return tail ? next({ ...e, props: { ...e.props, tail } }) : next(e)
   })
 
   on('session.measure', async ($, e, next) => {
