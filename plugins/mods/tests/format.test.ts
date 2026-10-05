@@ -1,0 +1,105 @@
+import { describe, expect, test } from 'claude-code/testing'
+
+import {
+  ZERO_TOKENS,
+  addUsage,
+  barCells,
+  countdown,
+  identityText,
+  level,
+  modelName,
+  shortNumber,
+} from '../features/usage/format'
+import { buildPills } from '../features/usage/pills'
+
+const NOW = Date.parse('2026-10-05T12:00:00Z')
+const at = (ms: number) => new Date(NOW + ms).toISOString()
+const H = 3_600_000
+const texts = (p: { parts: { text: string }[] }) => p.parts.map(x => x.text)
+
+describe('format', () => {
+  test('shortens numbers', () => {
+    expect(shortNumber(999)).toBe('999')
+    expect(shortNumber(214_300)).toBe('214.3k')
+    expect(shortNumber(61_200)).toBe('61.2k')
+    expect(shortNumber(8_580_000)).toBe('8.58M')
+  })
+
+  test('counts down by the two largest units', () => {
+    expect(countdown(at(3 * H + 57 * 60_000 + 5_000), NOW)).toBe('3h 57m')
+    expect(countdown(at(5 * 24 * H + 6 * H + 60_000), NOW)).toBe('5d 6h')
+    expect(countdown(at(12 * 60_000 + 30_000), NOW)).toBe('12m')
+    expect(countdown(at(-60_000), NOW)).toBeNull()
+    expect(countdown(undefined, NOW)).toBeNull()
+  })
+
+  test('fills an 8-cell bar and colours it by threshold', () => {
+    expect(barCells(0)).toBe('░░░░░░░░')
+    expect(barCells(25)).toBe('██░░░░░░')
+    expect(barCells(100)).toBe('████████')
+    expect(barCells(140)).toBe('████████')
+    expect(level(69)).toBe('ok')
+    expect(level(70)).toBe('warn')
+    expect(level(89)).toBe('warn')
+    expect(level(90)).toBe('high')
+  })
+
+  test('adds a request to the totals', () => {
+    const t = addUsage(ZERO_TOKENS, {
+      input_tokens: 10,
+      cache_creation_input_tokens: 5,
+      output_tokens: 7,
+      cache_read_input_tokens: 100,
+    })
+    expect(t).toEqual({ input: 15, output: 7, cacheRead: 100 })
+  })
+
+  test('names models and builds the identity line', () => {
+    expect(modelName('claude-opus-5-5')).toBe('Opus 5.5')
+    expect(modelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
+    expect(modelName('Opus 5.5')).toBe('Opus 5.5')
+    expect(identityText('go-alis-build', 'main', true, 'Opus 5.5')).toBe('go-alis-build (main✗) · Opus 5.5')
+    expect(identityText('go-alis-build', null, false, 'Opus 5.5')).toBe('go-alis-build · Opus 5.5')
+  })
+})
+
+describe('pills', () => {
+  const full = {
+    context: { percent: 25 },
+    rateLimits: [
+      { kind: 'seven_day', percentUsed: 27, resetsAt: at(5 * 24 * H + 6 * H + 60_000) },
+      { kind: 'five_hour', percentUsed: 25, resetsAt: at(3 * H + 57 * 60_000 + 5_000) },
+    ],
+    cost: { usd: 4.711 },
+  }
+  const tokens = { input: 214_300, output: 61_200, cacheRead: 8_580_000 }
+
+  test('builds every pill in order', () => {
+    const pills = buildPills(full, tokens, NOW)
+    expect(pills.map(p => p.key)).toEqual(['5h', '7d', 'ctx', 'in', 'out', 'cache', 'cost'])
+    expect(texts(pills[0])).toEqual(['5h', '██░░░░░░', '25%', '│ ↻ 3h 57m'])
+    expect(texts(pills[1])).toEqual(['7d', '██░░░░░░', '27%', '│ ↻ 5d 6h'])
+    expect(texts(pills[2])).toEqual(['ctx', '██░░░░░░', '25%'])
+    expect(texts(pills[3])).toEqual(['↑ 214.3k'])
+    expect(texts(pills[6])).toEqual(['$ 4.71'])
+  })
+
+  test('off a subscription: no 5h or 7d pill', () => {
+    const pills = buildPills({ ...full, rateLimits: [] }, tokens, NOW)
+    expect(pills.map(p => p.key)).toEqual(['ctx', 'in', 'out', 'cache', 'cost'])
+  })
+
+  test('a missing or past reset drops only the countdown', () => {
+    const pills = buildPills(
+      { ...full, rateLimits: [{ kind: 'five_hour', percentUsed: 91, resetsAt: at(-1) }] },
+      tokens,
+      NOW,
+    )
+    expect(texts(pills[0])).toEqual(['5h', '███████░', '91%'])
+    expect(pills[0].parts[1].level).toBe('high')
+  })
+
+  test('nothing measured yet: no pills', () => {
+    expect(buildPills({ context: {}, rateLimits: [] }, ZERO_TOKENS, NOW)).toEqual([])
+  })
+})
