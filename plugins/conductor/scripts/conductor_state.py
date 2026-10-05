@@ -30,6 +30,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 CONTEXT_DIR = os.path.join("conductor", "context")
@@ -776,6 +777,123 @@ def _backlog_blocks(lines):
   return blocks
 
 
+# Decisions older Conductor versions wrote into repo knowledge bundles. Only
+# files under a bundle's decisions/ folder with Conductor's own types count:
+# code-documentation's OKF concepts (any other type) and docs/adr/ never move.
+LEGACY_DECISION_TYPES = ("Architecture Decision", "Decision Evidence")
+DECISION_BUNDLE = ".adr"
+SKIP_DIRS = {".git", "node_modules", "vendor", "conductor", DECISION_BUNDLE}
+ADR_TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates", "adr")
+
+
+def _legacy_split(rel):
+  """(package, path inside decisions/) for a bundle decision path, else None."""
+  parts = rel.split("/")
+  if "knowledge" not in parts:
+    return None
+  k = parts.index("knowledge")
+  if len(parts) < k + 3 or parts[k + 1] != "decisions" or parts[-1] == "index.md":
+    return None
+  return "/".join(parts[:k]), parts[k + 2:]
+
+
+def _legacy_decisions():
+  found = []
+  for root, dirs, files in os.walk("."):
+    dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+    for name in files:
+      if not name.endswith(".md"):
+        continue
+      rel = os.path.relpath(os.path.join(root, name), ".").replace(os.sep, "/")
+      if _legacy_split(rel) is None:
+        continue
+      fm_text, _ = split_frontmatter(read_text(rel))
+      if fm_text and parse_frontmatter(fm_text).get("type") in LEGACY_DECISION_TYPES:
+        found.append(rel)
+  return sorted(found)
+
+
+def _is_tracked(path):
+  try:
+    return subprocess.run(["git", "ls-files", "--error-unmatch", path], capture_output=True,
+                          check=False).returncode == 0
+  except OSError:
+    return False
+
+
+def _scaffold_decision_bundle():
+  """Creates .adr/ with its self-ignoring .gitignore first, then its indexes."""
+  made = []
+  os.makedirs(os.path.join(DECISION_BUNDLE, "decisions"), exist_ok=True)
+  for src, dst in (("gitignore", ".gitignore"), ("index.md", "index.md"),
+                   (os.path.join("decisions", "index.md"), os.path.join("decisions", "index.md"))):
+    target = os.path.join(DECISION_BUNDLE, dst)
+    if not os.path.isfile(target):
+      template = os.path.join(ADR_TEMPLATES, src)
+      _write(target, read_text(template) if os.path.isfile(template) else ("*\n" if dst == ".gitignore" else ""))
+      made.append(target)
+  log = os.path.join(DECISION_BUNDLE, "log.md")
+  if not os.path.isfile(log):
+    _write(log, "# Log\n")
+  return made
+
+
+def _with_scope(text, package):
+  fm_text, body = split_frontmatter(text)
+  if not package or fm_text is None or re.search(r"^scope:", fm_text, re.M):
+    return text
+  return f"---\n{fm_text}\nscope: {package}\n---\n{body}"
+
+
+def _migrate_decisions():
+  """Moves legacy bundle decisions into .adr/decisions/ and repoints Conductor's files."""
+  legacy = _legacy_decisions()
+  if not legacy:
+    return []
+  fixed = []
+  _scaffold_decision_bundle()
+  moved = {}
+  for rel in legacy:
+    package, inside = _legacy_split(rel)
+    target = "/".join([DECISION_BUNDLE, "decisions", *inside])
+    if os.path.exists(target) or target in moved.values():
+      prefix = re.sub(r"[^a-z0-9]+", "-", package.lower()).strip("-") or "repo"
+      target = "/".join([DECISION_BUNDLE, "decisions", *inside[:-1], f"{prefix}-{inside[-1]}"])
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    text = read_text(rel)
+    _write(target, _with_scope(text, package))
+    os.remove(rel)
+    moved[rel] = target
+    # Drop the moved file's line from its old bundle's decisions index.
+    old_index = rel.split("/decisions/")[0] + "/decisions/index.md"
+    if os.path.isfile(old_index):
+      link = "/decisions/" + "/".join(inside)
+      lines = read_text(old_index).split("\n")
+      _write(old_index, "\n".join(l for l in lines if link not in l))
+    fm_text, _ = split_frontmatter(text)
+    title = (parse_frontmatter(fm_text).get("title") if fm_text else None) or os.path.basename(target)[:-3]
+    new_link = "/" + target[len(DECISION_BUNDLE) + 1:]
+    with open(os.path.join(DECISION_BUNDLE, "decisions", "index.md"), "a", encoding="utf-8") as fh:
+      fh.write(f"* [{title}]({new_link}) — moved from `{rel}`\n")
+    fixed.append(f"moved {rel} to {target}")
+  # Repoint paths inside conductor/ (metadata deliverables, backlog gates, specs).
+  for root, _, files in os.walk("conductor"):
+    for name in files:
+      if not name.endswith((".md", ".json")):
+        continue
+      path = os.path.join(root, name)
+      text = read_text(path)
+      new = text
+      for old, target in moved.items():
+        new = new.replace(old, target)
+      if new != text:
+        _write(path, new)
+        fixed.append(f"repointed {path.replace(os.sep, '/')}")
+  with open(os.path.join(DECISION_BUNDLE, "log.md"), "a", encoding="utf-8") as fh:
+    fh.write(f"\n- {datetime.date.today().isoformat()}: moved {len(moved)} decisions from knowledge bundles\n")
+  return fixed
+
+
 def _doctor_issues():
   issues = []
   plugin_version = _plugin_version()
@@ -813,6 +931,11 @@ def _doctor_issues():
   if os.path.isfile(".gitignore") and GITIGNORE_CONTRADICTION in read_text(".gitignore"):
     issues.append({"id": "gitignore_contradiction", "fix": "auto",
                    "detail": ".gitignore says Conductor files must not be ignored"})
+  legacy = _legacy_decisions()
+  if legacy:
+    issues.append({"id": "legacy_decisions", "fix": "skill",
+                   "detail": f"{len(legacy)} decisions still in knowledge bundles; they belong in {DECISION_BUNDLE}/",
+                   "files": [{"path": p, "is_tracked": _is_tracked(p)} for p in legacy]})
   if project_version is None:
     issues.append({"id": "unstamped_version", "fix": "stamp",
                    "detail": "index.md does not record the Conductor version it follows"})
@@ -874,6 +997,8 @@ def cmd_doctor(args):
   fixed = []
   if "--fix" in args and os.path.isfile(INDEX_FILE):
     fixed += _doctor_fix()
+  if "--migrate-decisions" in args and os.path.isfile(INDEX_FILE):
+    fixed += _migrate_decisions()
   if "--stamp" in args and os.path.isfile(INDEX_FILE):
     fixed.append(_doctor_stamp())
   issues, project_version = _doctor_issues()

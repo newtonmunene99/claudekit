@@ -516,6 +516,111 @@ class Doctor(unittest.TestCase):
     self.assertNotIn("unstamped_version", self.ids(out))
 
 
+class DoctorLegacyDecisions(unittest.TestCase):
+  """Decisions Conductor wrote into knowledge/ bundles move to the local .adr/.
+
+  Only files under a knowledge bundle's decisions/ folder with Conductor's own
+  types count: code-documentation's OKF concepts and other notes stay put.
+  """
+
+  def setUp(self):
+    self._tmp = tempfile.TemporaryDirectory()
+    self.p = Project(self._tmp.name)
+    self.p.write("conductor/context/index.md", "# Project Context\n")
+    self.p.write("conductor/context/backlog.md",
+                 "- [ ] **Split store** — gated on [boundary](../../pkg/store/knowledge/decisions/boundary.md).\n")
+    self.p.write("conductor/specs/bound_20260101/metadata.json",
+                 '{"track_id": "bound_20260101", "track_role": "decision", '
+                 '"deliverable": "pkg/store/knowledge/decisions/boundary.md"}')
+    self.p.write("pkg/store/knowledge/decisions/boundary.md", """
+        ---
+        type: Architecture Decision
+        title: Store boundary
+        track: bound_20260101
+        ---
+
+        # Store boundary
+        """)
+    self.p.write("knowledge/decisions/evidence/spike.md", """
+        ---
+        type: Decision Evidence
+        title: Spike
+        ---
+        """)
+    self.p.write("knowledge/decisions/index.md", """
+        # Decisions
+
+        * [Spike](/decisions/evidence/spike.md) — evidence
+        * [RFC style](/decisions/rfc-style.md) — kept
+        """)
+    # Lookalikes that must never move.
+    self.p.write("knowledge/decisions/rfc-style.md", "---\ntype: Design Note\n---\n")
+    self.p.write("knowledge/packages/store.md", "---\ntype: Go Package\n---\n")
+    self.p.write("docs/adr/0001-use-spanner.md", "# Use Spanner\n")
+
+  def tearDown(self):
+    self._tmp.cleanup()
+
+  def read(self, rel):
+    with open(os.path.join(self.p.root, rel), encoding="utf-8") as fh:
+      return fh.read()
+
+  def exists(self, rel):
+    return os.path.exists(os.path.join(self.p.root, rel))
+
+  def legacy(self, out):
+    return [i for i in out["issues"] if i["id"] == "legacy_decisions"]
+
+  def test_reports_only_conductor_decisions(self):
+    out, _ = self.p.run("doctor")
+    [issue] = self.legacy(out)
+    self.assertEqual(issue["fix"], "skill")
+    self.assertEqual(issue["files"], [
+        {"path": "knowledge/decisions/evidence/spike.md", "is_tracked": False},
+        {"path": "pkg/store/knowledge/decisions/boundary.md", "is_tracked": False}])
+
+  def test_migrate_moves_them_into_a_self_ignoring_adr(self):
+    out, code = self.p.run("doctor", "--migrate-decisions")
+    self.assertEqual(code, 0, out)
+    self.assertEqual(self.read(".adr/.gitignore"), "*\n")
+    boundary = self.read(".adr/decisions/boundary.md")
+    self.assertIn("type: Architecture Decision", boundary)
+    self.assertIn("scope: pkg/store", boundary)
+    self.assertTrue(self.exists(".adr/decisions/evidence/spike.md"))
+    self.assertFalse(self.exists("pkg/store/knowledge/decisions/boundary.md"))
+    self.assertFalse(self.exists("knowledge/decisions/evidence/spike.md"))
+    # Lookalikes stay.
+    for rel in ("knowledge/decisions/rfc-style.md", "knowledge/packages/store.md", "docs/adr/0001-use-spanner.md"):
+      self.assertTrue(self.exists(rel), rel)
+    # The old listing keeps only what stayed; the new one lists what moved.
+    old_index = self.read("knowledge/decisions/index.md")
+    self.assertNotIn("spike.md", old_index)
+    self.assertIn("rfc-style.md", old_index)
+    new_index = self.read(".adr/decisions/index.md")
+    self.assertIn("(/decisions/boundary.md)", new_index)
+    self.assertIn("(/decisions/evidence/spike.md)", new_index)
+    # Conductor's own files point at the new home.
+    self.assertIn('".adr/decisions/boundary.md"', self.read("conductor/specs/bound_20260101/metadata.json"))
+    self.assertIn("../../.adr/decisions/boundary.md", self.read("conductor/context/backlog.md"))
+    self.assertEqual(self.legacy(out), [])
+
+  def test_a_slug_two_packages_share_keeps_both(self):
+    self.p.write("pkg/api/knowledge/decisions/boundary.md", "---\ntype: Architecture Decision\n---\n")
+    out, code = self.p.run("doctor", "--migrate-decisions")
+    self.assertEqual(code, 0, out)
+    self.assertTrue(self.exists(".adr/decisions/boundary.md"))
+    self.assertTrue(self.exists(".adr/decisions/pkg-store-boundary.md"))
+
+  def test_reports_which_files_git_tracks(self):
+    subprocess.run(["git", "init", "-q"], cwd=self.p.root, check=True)
+    subprocess.run(["git", "add", "pkg/store/knowledge/decisions/boundary.md"], cwd=self.p.root, check=True)
+    out, _ = self.p.run("doctor")
+    [issue] = self.legacy(out)
+    tracked = {f["path"]: f["is_tracked"] for f in issue["files"]}
+    self.assertTrue(tracked["pkg/store/knowledge/decisions/boundary.md"])
+    self.assertFalse(tracked["knowledge/decisions/evidence/spike.md"])
+
+
 class SetupResume(unittest.TestCase):
 
   def test_an_initialized_project_routes_to_the_upgrade_section(self):
