@@ -15,6 +15,9 @@ export function engineDraws(on: any): void {
   })
 }
 
+// The test runtime has timers; the hooks environment's types do not declare them.
+declare const setTimeout: (fn: () => void, ms: number) => unknown
+
 const HOUR = 3_600_000
 
 // `on` is the test body's registrar; typed loosely so stubs stay short.
@@ -205,4 +208,64 @@ describe('identity', () => {
       await ui.unmount()
     })
   }
+})
+
+// The session around identity, with git left to each test.
+function stubSession(on: any): void {
+  on('session.start', ($: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('clock.every', () => ({ value: undefined }))
+  on('session.root', () => ({ value: '/Volumes/x/go-alis-build' }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+}
+
+describe('identity refresh', () => {
+  test('a subagent turn runs no git', async ($, on) => {
+    stubUsage(on)
+    stubSession(on)
+    const calls: (readonly string[])[] = []
+    on('process.run', ($: unknown, e: { argv: readonly string[] }) => {
+      calls.push(e.argv)
+      return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    })
+    on('turn.complete', ($: unknown, e: { answer: string }) => ({ text: e.answer }))
+    await $.turn.complete({ turnId: 't1', agentId: 'sub-1', answer: 'ok', durationMs: 1, reason: 'answer', isAborted: false } as never)
+    expect(calls.length).toBe(0)
+  })
+
+  test('a slow git never holds up the turn', async ($, on) => {
+    stubUsage(on)
+    stubSession(on)
+    on('process.run', () => new Promise(() => {}))
+    on('turn.complete', ($: unknown, e: { answer: string }) => ({ text: e.answer }))
+    const done = await Promise.race([
+      $.turn.complete({ turnId: 't1', answer: 'ok', durationMs: 1, reason: 'answer', isAborted: false } as never).then(() => 'done'),
+      new Promise(resolve => setTimeout(() => resolve('blocked'), 500)),
+    ])
+    expect(done).toBe('done')
+  })
+})
+
+describe('band updates', () => {
+  test('a new measurement redraws the limit', async ($, on) => {
+    let percent = 25
+    on('session.usage', () => ({
+      value: {
+        startedAt: 0,
+        context: { window: 200_000 },
+        rateLimits: [{ kind: 'five_hour', percentUsed: percent }],
+      },
+    }))
+    engineDraws(on)
+    on('session.measure', ($: unknown, e: any) => ({ changed: e.changed }))
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: '25%' })).toBeDefined()
+    percent = 61
+    await $.session.measure({
+      context: { window: 200_000 },
+      rateLimits: [{ kind: 'five_hour', percentUsed: 61 }],
+      changed: ['rateLimits'],
+    } as never)
+    expect(await ui.find({ type: 'Text', text: '61%' })).toBeDefined()
+    await ui.unmount()
+  })
 })
