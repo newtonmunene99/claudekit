@@ -18,6 +18,11 @@
       "name": "engineering",
       "source": "./plugins/engineering",
       "description": "Engineering skills: grilling, research, prototype, architecture review."
+    },
+    {
+      "name": "mods",
+      "source": "./plugins/mods",
+      "description": "General-purpose Claude Code mods: usage band, folder, branch and model."
     }
   ]
 }
