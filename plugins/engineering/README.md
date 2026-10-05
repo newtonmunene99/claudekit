@@ -13,7 +13,6 @@ Works with **Conductor** for remediation programmes; OKF knowledge lives **in th
 | `/engineering:research` | Scoped, parallel-lane primary-source research → deduped, checked markdown |
 | `/engineering:prototype` | Throwaway spike (use `/conductor:conductor-prototype` for decision tracks) |
 | `/engineering:improve-codebase-architecture` | Deepening opportunities → HTML report |
-| `/engineering:codebase-design` | Deep-module design vocabulary and seam placement |
 | `/engineering:domain-modeling` | Sharpen domain language and challenge the glossary |
 
 ## OKF knowledge (primary)
@@ -35,7 +34,7 @@ When the user asks for knowledge or project docs, **discover or scaffold at repo
 | Legacy | OKF default |
 | ------ | ----------- |
 | `docs/adr/` | `<bundle-root>/decisions/<slug>.md` |
-| `CONTEXT.md` | `conductor/context/product.md` or repo `CONTEXT.md` + OKF overview concepts |
+| `GLOSSARY.md` | `conductor/context/product.md` or repo `GLOSSARY.md` + OKF overview concepts |
 | Explore subagent | `Task` + `subagent_type=explore` |
 
 ## Conductor integration

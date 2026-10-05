@@ -14,4 +14,4 @@ Run a `/engineering:grilling` session, using the **domain-modeling** skill.
 
 When the user asks for **project docs** or **knowledge**, scaffold or extend the appropriate repo bundle — discover existing `**/knowledge/index.md` first.
 
-Glossary terms: `conductor/context/product.md` or repo `CONTEXT.md` — not a substitute for OKF concept docs.
+Glossary terms: `conductor/context/product.md` or repo `GLOSSARY.md` — not a substitute for OKF concept docs.

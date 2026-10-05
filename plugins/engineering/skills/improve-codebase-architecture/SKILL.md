@@ -9,7 +9,7 @@ Surface architectural friction and propose **deepening opportunities** — refac
 
 This command is _informed_ by the project's domain model and built on a shared design vocabulary:
 
-- Resolve the engineering plugin `codebase-design` skill for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
+- Call the Skill tool with "codebase-design" for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
 - OKF decision concepts in repo bundles (`knowledge/decisions/` or `<module>/knowledge/decisions/`) record decisions this command should not re-litigate.
 
 ## Process
@@ -23,7 +23,7 @@ This command is _informed_ by the project's domain model and built on a shared d
 
 Read the project's glossary and OKF bundles (`**/knowledge/index.md`) in the area you're touching first.
 
-Then use the Task tool with `subagent_type=explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
+Then spawn a sub-agent (the Explore agent where the harness has one) to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow** — interface nearly as complex as the implementation?
@@ -50,9 +50,9 @@ For each candidate, render a card with:
 
 End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
-**Use CONTEXT.md vocabulary for the domain, and the `/codebase-design` vocabulary for the architecture.** If `conductor/context/product.md` (or repo-root `CONTEXT.md` if present) defines "Order," talk about "the Order intake module" — not "the FooBarHandler," and not "the Order service."
+**Use GLOSSARY.md vocabulary for the domain, and the `/codebase-design` vocabulary for the architecture.** If `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) defines "Order," talk about "the Order intake module" — not "the FooBarHandler," and not "the Order service."
 
-**OKF decision conflicts**: if a candidate contradicts an existing OKF decision concept, only surface it when the friction is real enough to warrant revisiting. Mark it in the card (e.g. _"contradicts [<title>](/<pkg>/knowledge/decisions/<slug>.md) — worth reopening because…"_).
+**OKF decision conflicts**: if a candidate contradicts an existing OKF decision concept, only surface it when the friction is real enough to warrant revisiting. Mark it in the card (e.g. _"contradicts [<title>](/<pkg>/knowledge/decisions/<slug>.md) — worth reopening because…"_). Don't list every theoretical refactor a decision forbids.
 
 See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
 
@@ -64,7 +64,7 @@ Once the user picks a candidate, run the `/engineering:grilling` skill to walk t
 
 Side effects happen inline as decisions crystallize — run the `/domain-modeling` skill to keep the domain model current as you go:
 
-- **Naming a deepened module after a concept not in `conductor/context/product.md` (or repo-root `CONTEXT.md` if present)?** Add the term to `conductor/context/product.md` (or repo-root `CONTEXT.md` if present). Create the file lazily if it doesn't exist.
-- **Sharpening a fuzzy term during the conversation?** Update `conductor/context/product.md` (or repo-root `CONTEXT.md` if present) right there.
-- **User rejects the candidate with a load-bearing reason?** Offer an OKF decision concept via `/engineering:grill-with-docs`, framed as: _"Want me to record this as a knowledge decision so future architecture reviews don't re-suggest it?"_
-- **Want to explore alternative interfaces for the deepened module?** Resolve the engineering plugin `codebase-design` skill and use its design-it-twice parallel sub-agent pattern.
+- **Naming a deepened module after a concept not in `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present)?** Add the term to `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present). Create the file lazily if it doesn't exist.
+- **Sharpening a fuzzy term during the conversation?** Update `conductor/context/product.md` (or repo-root `GLOSSARY.md` if present) right there.
+- **User rejects the candidate with a load-bearing reason?** Offer an OKF decision concept via `/engineering:grill-with-docs`, framed as: _"Want me to record this as a knowledge decision so future architecture reviews don't re-suggest it?"_ Only offer when a future explorer would actually need the reason to avoid re-suggesting the same thing; skip ephemeral reasons ("not worth it right now") and self-evident ones.
+- **Want to explore alternative interfaces for the deepened module?** Call the Skill tool with "codebase-design" and use its design-it-twice parallel sub-agent pattern.
