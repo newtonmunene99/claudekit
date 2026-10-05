@@ -2,10 +2,10 @@
 // figures are read live while drawing ($.session.usage() is free); events and
 // a timer only ask for a redraw.
 
-import { atom, read } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import { ZERO_TOKENS } from './format'
+import { ZERO_TOKENS, addUsage } from './format'
 import { buildPills } from './pills'
 import type { Tone } from './pills'
 
@@ -41,6 +41,15 @@ export function registerUsage(on: On): void {
     const measured = await next(e)
     redraw($)
     return measured
+  })
+
+  // Every model request, main thread and subagents: the cost figure counts
+  // them all, so the token totals do too. Writing state redraws the band.
+  on('turn.step', async function* ($, e, next) {
+    const result = yield* next(e)
+    const usage = result?.usage
+    if (usage) await update($, tokens, t => addUsage(t ?? ZERO_TOKENS, usage))
+    return result
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

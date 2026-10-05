@@ -117,4 +117,36 @@ describe('band', () => {
     expect((await ui.findAll({ type: 'Text' })).length).toBe(0)
     await ui.unmount()
   })
+
+  test('adds every model request to the token pills', async ($, on) => {
+    stubUsage(on)
+    engineDraws(on)
+    on('turn.step', async function* ($: unknown, e: { turnId: string; index: number }) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: 'end_turn',
+        usage: {
+          model: 'claude-opus-5-5',
+          input_tokens: 100_000,
+          cache_creation_input_tokens: 7_150,
+          output_tokens: 30_600,
+          cache_read_input_tokens: 4_290_000,
+        },
+      } as never
+    })
+    for (let i = 0; i < 2; i++) {
+      const step = { turnId: 't1', index: i, model: 'claude-opus-5-5', messageCount: 1 }
+      for await (const _ of $.turn.step(step as never)) {
+        // drain the stream
+      }
+    }
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: '↑ 214.3k' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '↓ 61.2k' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '≋ 8.58M' })).toBeDefined()
+    await ui.unmount()
+  })
 })
