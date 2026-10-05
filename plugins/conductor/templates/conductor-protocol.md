@@ -200,6 +200,7 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 7. **An answer that is a question or a change request** is handled first, in chat. Re-ask the gate only after answering it; never re-ask as if it were not said.
 8. **Hand checks go in plain chat.** Manual verification steps and their "does this work?" question are plain text, never a structured prompt tool: users answer them with screenshots, logs, and several defects at once.
 9. **Skip what is already answered** in **Working Agreements** (see below).
+10. **Show what you ask about.** An approve, confirm, or revise gate is asked only after its subject is in the chat or in the question itself: the design section, the draft's key points, the exact commands. Reasoning is invisible to the user, so a design worked out there and then put to "Approve?" is asking blind.
 
 ## Working Agreements Protocol
 
