@@ -2,7 +2,7 @@
 // text. The render hook only maps these to elements.
 
 import type { UsageTokens } from '../types'
-import { barCells, countdown, level, shortNumber } from './format'
+import { barCells, level, resetTime, shortNumber } from './format'
 
 export type Tone = 'green' | 'purple' | 'grey' | 'red' | 'blue' | 'yellow'
 export type PillPart = { text: string; level?: 'ok' | 'warn' | 'high'; isBold?: boolean; isDim?: boolean }
@@ -30,8 +30,8 @@ export function buildPills(usage: UsageFigures, tokens: UsageTokens, now: number
   const limit = (kind: string) => usage.rateLimits.find(r => r.kind === kind)
   const five = limit('five_hour')
   const week = limit('seven_day')
-  if (five) pills.push(meter('5h', '5h', 'green', five.percentUsed, countdown(five.resetsAt, now)))
-  if (week) pills.push(meter('7d', '7d', 'purple', week.percentUsed, countdown(week.resetsAt, now)))
+  if (five) pills.push(meter('5h', '5h', 'green', five.percentUsed, resetTime(five.resetsAt, now, false)))
+  if (week) pills.push(meter('7d', '7d', 'purple', week.percentUsed, resetTime(week.resetsAt, now, true)))
   if (usage.context.percent !== undefined) {
     pills.push(meter('ctx', 'ctx', 'grey', usage.context.percent, null))
   }
