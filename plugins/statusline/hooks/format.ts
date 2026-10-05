@@ -1,7 +1,7 @@
 // Pure formatting for the usage band and identity line. No `$`, so tests feed
 // it plain values.
 
-import type { UsageTokens } from '../../types'
+import type { UsageTokens } from '../types'
 
 export const ZERO_TOKENS: UsageTokens = { input: 0, output: 0, cacheRead: 0 }
 

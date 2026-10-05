@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { Plugin } from 'claude-code/testing'
 
 export const BAND = {
-  plugin: 'mods',
+  plugin: 'statusline',
   component: 'AbovePrompt',
   props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 120 } as never,
 } as const
@@ -35,24 +35,6 @@ export function stubUsage(on: any, over: object = {}): void {
     },
   }))
 }
-
-describe('switch', () => {
-  test('the usage feature draws when on', async ($, on) => {
-    stubUsage(on)
-    engineDraws(on)
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-    expect(await ui.find({ type: 'Text' })).toBeDefined()
-    await ui.unmount()
-  })
-
-  test('usage off registers no band', { options: { usage: false } }, async ($, on) => {
-    stubUsage(on)
-    engineDraws(on)
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-    expect(await ui.find({ type: 'Text' })).toBeUndefined()
-    await ui.unmount()
-  })
-})
 
 describe('band', () => {
   test('draws the limit, context and cost pills on both surfaces', async ($, on) => {
@@ -155,7 +137,7 @@ describe('band', () => {
 })
 
 const HINT = {
-  plugin: 'mods',
+  plugin: 'statusline',
   component: 'PromptHint',
   props: { isDraft: false, isWorking: false, hint: '? for shortcuts' } as never,
 } as const

@@ -1,0 +1,9 @@
+{
+  "name": "statusline",
+  "version": "0.1.0",
+  "description": "A status line as a mod: 5-hour and weekly limits, context, tokens and cost above the prompt; folder, branch, model, session name and id under it.",
+  "author": {
+    "name": "newtonmunene99"
+  },
+  "types": "./types/index.d.ts"
+}

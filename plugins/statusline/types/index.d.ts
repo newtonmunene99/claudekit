@@ -1,4 +1,4 @@
-// State the mods plugin keeps for a session, one prefix per feature.
+// State the statusline plugin keeps for a session.
 
 export type UsageTokens = {
   // Input tokens sent uncached, including those written to the cache.
@@ -9,13 +9,13 @@ export type UsageTokens = {
 
 declare module 'claude-code' {
   interface PluginState {
-    mods: {
-      usageTokens: UsageTokens
+    statusline: {
+      tokens: UsageTokens
       // "<folder> (<branch>[✗]) · <model>[ · <title>] · <id8>", or null before
       // the first reading.
-      usageIdentity: string | null
+      identity: string | null
       // The session's name as the last session start or prompt carried it.
-      usageTitle: string | null
+      title: string | null
     }
   }
 }

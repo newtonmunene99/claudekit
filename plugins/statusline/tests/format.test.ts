@@ -9,8 +9,8 @@ import {
   level,
   modelName,
   shortNumber,
-} from '../features/usage/format'
-import { buildPills } from '../features/usage/pills'
+} from '../hooks/format'
+import { buildPills } from '../hooks/pills'
 
 const NOW = Date.parse('2026-10-05T12:00:00Z')
 const at = (ms: number) => new Date(NOW + ms).toISOString()

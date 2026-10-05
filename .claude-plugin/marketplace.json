@@ -20,9 +20,9 @@
       "description": "Engineering skills: grilling, research, prototype, architecture review."
     },
     {
-      "name": "mods",
-      "source": "./plugins/mods",
-      "description": "General-purpose Claude Code mods: usage band, folder, branch and model."
+      "name": "statusline",
+      "source": "./plugins/statusline",
+      "description": "A status line as a mod: limits, context, tokens and cost above the prompt; folder, branch, model, name and id under it."
     },
     {
       "name": "autoname",
