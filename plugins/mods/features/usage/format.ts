@@ -59,7 +59,16 @@ export function modelName(id: string): string {
   return `${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}.${minor}`
 }
 
-export function identityText(folder: string, branch: string | null, isDirty: boolean, model: string): string {
+// "<folder> (<branch>[✗]) · <model>[ · <title>] · <id8>": the session's name
+// when it has one, and the id's first 8 characters, enough to find or resume it.
+export function identityText(
+  folder: string,
+  branch: string | null,
+  isDirty: boolean,
+  model: string,
+  title: string | null,
+  sessionId: string,
+): string {
   const where = branch ? `${folder} (${branch}${isDirty ? '✗' : ''})` : folder
-  return `${where} · ${model}`
+  return [where, model, title, sessionId.slice(0, 8)].filter(Boolean).join(' · ')
 }

@@ -58,8 +58,14 @@ describe('format', () => {
     expect(modelName('claude-opus-5-5')).toBe('Opus 5.5')
     expect(modelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
     expect(modelName('Opus 5.5')).toBe('Opus 5.5')
-    expect(identityText('go-alis-build', 'main', true, 'Opus 5.5')).toBe('go-alis-build (main✗) · Opus 5.5')
-    expect(identityText('go-alis-build', null, false, 'Opus 5.5')).toBe('go-alis-build · Opus 5.5')
+    const id = '0087e2e3-f23a-4d0f-845c-4ac4f65d3981'
+    expect(identityText('go-alis-build', 'main', true, 'Opus 5.5', null, id)).toBe(
+      'go-alis-build (main✗) · Opus 5.5 · 0087e2e3',
+    )
+    expect(identityText('go-alis-build', null, false, 'Opus 5.5', null, id)).toBe('go-alis-build · Opus 5.5 · 0087e2e3')
+    expect(identityText('go-alis-build', 'main', false, 'Opus 5.5', 'protodb fixes', id)).toBe(
+      'go-alis-build (main) · Opus 5.5 · protodb fixes · 0087e2e3',
+    )
   })
 })
 
