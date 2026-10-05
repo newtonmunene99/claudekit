@@ -15,11 +15,26 @@ const todo = (raw: Json): ConductorTodo => ({
   phase: str(raw.phase),
 })
 
-// The track the HUD follows: the one in progress, else the recommended one.
-export function pickTrack(tracks: Json): Json | null {
+// The track the HUD follows: of the tracks in progress, the one whose plan
+// changed last (each todo update rewrites it), so starting a second track moves
+// the HUD to it; else the recommended one. Ties keep tracks.md order.
+export function pickTrack(tracks: Json, planMtimes: Record<string, number> = {}): Json | null {
   const all: Json[] = tracks.tracks ?? []
-  const id = tracks.in_progress?.[0] ?? tracks.recommended
-  return all.find(t => t.track_id === id) ?? null
+  const byId = (id: unknown) => all.find(t => t.track_id === id) ?? null
+  const inFlight = ((tracks.in_progress ?? []) as unknown[]).map(byId).filter((t): t is Json => t !== null)
+  let picked: Json | null = null
+  for (const t of inFlight) {
+    if (!picked || (planMtimes[t.plan] ?? 0) > (planMtimes[picked.plan] ?? 0)) picked = t
+  }
+  return picked ?? byId(tracks.recommended)
+}
+
+// Plans of the tracks in progress: the files whose changes can move the HUD.
+export function inFlightPlans(tracks: Json): string[] {
+  const ids = new Set(tracks.in_progress ?? [])
+  return ((tracks.tracks ?? []) as Json[])
+    .filter(t => ids.has(t.track_id) && t.plan)
+    .map(t => String(t.plan))
 }
 
 export function toPlan(raw: Json): ConductorPlan {
@@ -47,10 +62,33 @@ export function toPlan(raw: Json): ConductorPlan {
   }
 }
 
-export function toSnapshot(tracks: Json, plan: Json | null): ConductorSnapshot {
-  const track = pickTrack(tracks)
+// otherPlans: the script's plan JSON for the other tracks in progress, by track id.
+export function toSnapshot(
+  tracks: Json,
+  plan: Json | null,
+  planMtimes: Record<string, number> = {},
+  otherPlans: Record<string, Json> = {},
+): ConductorSnapshot {
+  const track = pickTrack(tracks, planMtimes)
+  const inFlight: string[] = (tracks.in_progress ?? []).map(String)
+  const others = inFlight
+    .filter(id => id !== track?.track_id)
+    .map(id => {
+      const t = ((tracks.tracks ?? []) as Json[]).find(x => x.track_id === id)
+      const raw = otherPlans[id]
+      const p = raw && !raw.error ? toPlan(raw) : null
+      return {
+        trackId: id,
+        description: str(t?.description),
+        done: p?.done ?? 0,
+        total: p?.total ?? 0,
+        next: p?.next ?? null,
+      }
+    })
   return {
     trackId: track?.track_id ?? null,
+    inFlight,
+    others,
     description: track?.description ?? null,
     isInProgress: track?.status === 'in_progress',
     plan: plan && !plan.error ? toPlan(plan) : null,
@@ -97,8 +135,9 @@ export function milestones(prev: ConductorSnapshot | null, next: ConductorSnapsh
 // The engine already prefixes a plugin's status line with its name.
 export function statusText(s: ConductorSnapshot | null): string | undefined {
   if (!s?.trackId) return undefined
-  if (s.isInProgress && s.plan) return `${s.trackId} ${s.plan.done}/${s.plan.total}`
-  if (s.isInProgress) return s.trackId
+  const more = s.inFlight.length > 1 ? ` (+${s.inFlight.length - 1} in flight)` : ''
+  if (s.isInProgress && s.plan) return `${s.trackId} ${s.plan.done}/${s.plan.total}${more}`
+  if (s.isInProgress) return `${s.trackId}${more}`
   return `next track ${s.trackId}`
 }
 

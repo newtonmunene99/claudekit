@@ -6,7 +6,7 @@ describe('board command', () => {
     on('fs.exists', () => ({ value: false }))
     on('ui.status', () => ({ value: undefined }))
     on('ui.open', () => ({ value: { isPlaced: true } as never }))
-    const ran = await $.command.run({ command: 'conductor-board' })
+    const ran = await $.command.run({ command: 'conductor-board' } as never)
     expect(ran.text).toBe('Conductor board opened.')
   })
 
@@ -19,7 +19,7 @@ describe('board command', () => {
     on('ui.open', () => {
       throw new Error('no pane')
     })
-    const ran = await $.command.run({ command: 'conductor-board' })
+    const ran = await $.command.run({ command: 'conductor-board' } as never)
     expect(ran.text).toContain("could not open")
   })
 
@@ -53,7 +53,7 @@ describe('board command', () => {
       opened.push(e.id)
       return { value: { isPlaced: true } as never }
     })
-    await $.command.run({ command: 'conductor-board' })
+    await $.command.run({ command: 'conductor-board' } as never)
     opened.length = 0
 
     const ui = await $.ui.mount({

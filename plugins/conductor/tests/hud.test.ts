@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { changesStatus, isPlanPath, rewritesConductorFile } from '../hooks/guard'
-import { milestones, statusText, toSnapshot } from '../hooks/snapshot'
+import { milestones, pickTrack, statusText, toSnapshot } from '../hooks/snapshot'
 
 const ROOT = '/repo'
 const PLAN = 'conductor/plans/track-a.plan.md'
@@ -37,7 +37,31 @@ const planJson = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+const PLAN_B = 'conductor/plans/track-b.plan.md'
+
+// Two tracks in progress: track-a first in tracks.md, track-b started later.
+const TWO_IN_FLIGHT = {
+  ...TRACKS,
+  tracks: [
+    TRACKS.tracks[0],
+    { description: 'Billing', status: 'in_progress', track_id: 'track-b', plan: PLAN_B },
+  ],
+  in_progress: ['track-a', 'track-b'],
+}
+
 describe('snapshot', () => {
+  test('follows the in-progress track whose plan changed last', () => {
+    expect(pickTrack(TWO_IN_FLIGHT, { [PLAN]: 1, [PLAN_B]: 2 })?.track_id).toBe('track-b')
+    expect(pickTrack(TWO_IN_FLIGHT, { [PLAN]: 2, [PLAN_B]: 1 })?.track_id).toBe('track-a')
+    // No mtimes, e.g. both plans missing: tracks.md order.
+    expect(pickTrack(TWO_IN_FLIGHT)?.track_id).toBe('track-a')
+    const s = toSnapshot(TWO_IN_FLIGHT, planJson({ plan: PLAN_B }), { [PLAN]: 1, [PLAN_B]: 2 })
+    expect(s.trackId).toBe('track-b')
+    expect(s.inFlight).toEqual(['track-a', 'track-b'])
+    expect(s.others).toEqual([{ trackId: 'track-a', description: 'Auth flow', done: 0, total: 0, next: null }])
+    expect(statusText(s)).toBe('track-b 7/12 (+1 in flight)')
+  })
+
   test('follows the in-progress track and counts deferred as done', () => {
     const s = toSnapshot(TRACKS, planJson())
     expect(s.trackId).toBe('track-a')
@@ -166,5 +190,50 @@ describe('hud', () => {
     expect(status).toBe('track-a 7/12')
     await band.unmount()
     expect(toasts).toEqual([])
+  })
+
+  test('moves to the newer track when a second one starts', async ($, on) => {
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', ($, e) => ({
+      value: { kind: 'file', size: 1, mtimeMs: e.path.endsWith(PLAN_B) ? 2 : 1, isLink: false },
+    }))
+    on('process.run', ($, e) => ({
+      value: {
+        exitCode: 0,
+        stdout: JSON.stringify(
+          e.argv.includes('tracks') ? TWO_IN_FLIGHT : planJson({ plan: e.argv.at(-1), name: 'Billing' }),
+        ),
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }))
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('ui.open', () => ({ value: { isPlaced: true } as never }))
+
+    await $.command.run({ command: 'conductor-board' } as never)
+    const band = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
+    })
+    expect(await band.find({ type: 'Text', text: /track-b/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: /\+1 in flight/ })).toBeDefined()
+    await band.unmount()
+
+    const board = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'Pane',
+      requestId: 'conductor-board',
+      props: { title: 'Conductor', isFocused: false, bodyColumns: 80, placement: 'dock' } as never,
+    })
+    expect(await board.find({ type: 'Text', text: /Also in progress \(1\)/ })).toBeDefined()
+    expect(await board.find({ type: 'Text', text: /track-a 7\/12/ })).toBeDefined()
+    expect(await board.find({ key: 'implement-track-a' })).toBeDefined()
+    await board.unmount()
   })
 })
