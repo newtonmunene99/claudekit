@@ -21,7 +21,6 @@ Place this file at **`knowledge/index.md`** (repo root) or **`<module>/knowledge
 # Contents
 
 * [Overview](/overview.md) — mental model (create when scoping the bundle)
-* [Decisions](/decisions/) — architecture decisions (`type: Architecture Decision`)
 
 # Conventions
 

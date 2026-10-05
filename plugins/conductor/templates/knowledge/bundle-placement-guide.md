@@ -29,11 +29,10 @@ Copy from Conductor `templates/knowledge/`:
 | ---- | ------- |
 | `index.md` | Bundle root — set `okf_version: "0.1"`, title, description for this scope |
 | `log.md` | OKF update log |
-| `decisions/index.md` | Decision concept listing (when decision tracks exist) |
 
-**Repo root example:** `knowledge/index.md`, `knowledge/decisions/<slug>.md`
+**Repo root example:** `knowledge/index.md`, `knowledge/overview.md`
 
-**Package example:** `<pkg>/knowledge/index.md`, `<pkg>/knowledge/decisions/<slug>.md`
+**Package example:** `<pkg>/knowledge/index.md`, `<pkg>/knowledge/packages/<name>.md`
 
 Concept ID = path within bundle without `.md` (e.g. `decisions/<slug>`).
 
@@ -47,12 +46,9 @@ In `conductor/context/index.md`, link to repo knowledge bundles:
 - [<pkg> knowledge](../<pkg>/knowledge/) — when a domain bundle exists
 ```
 
-## Decision track deliverable
+## Decisions are not in these bundles
 
-Set `metadata.json` `deliverable` to the **resolved bundle path**, e.g.:
-
-- `<pkg>/knowledge/decisions/<slug>.md`
-- `knowledge/decisions/<slug>.md`
+Decision concepts, spike evidence and the fallback glossary go to the local **Decision Bundle**, `.adr/` at the repo root (see the protocol), never into `knowledge/`: `.adr/` ignores itself, so they are committed only when the user asks. A decision track's `metadata.json` `deliverable` is `.adr/decisions/<slug>.md`.
 
 ## Concept types (recommended)
 

@@ -98,12 +98,7 @@ Reference: `docs/examples/remediation-programme-example.md`
 
 ## Decision tracks
 
-Deliverable is an **OKF concept** in a **repo knowledge bundle**:
-
-| Scope | Bundle root | Example deliverable |
-| ----- | ----------- | ------------------- |
-| Domain package | `<pkg>/knowledge/` | `<pkg>/knowledge/decisions/<slug>.md` |
-| Repository | `knowledge/` | `knowledge/decisions/<slug>.md` |
+Deliverable is an **OKF decision concept** at `.adr/decisions/<slug>.md`, in the local decision bundle at the repo root. `.adr/` carries a `.gitignore` with `*`, so decisions, spike evidence and the fallback glossary are never committed unless you ask. Project docs stay in repo knowledge bundles (`knowledge/`, `<pkg>/knowledge/`).
 
 Workflow: `/engineering:grilling` → `/engineering:research` → `/conductor:conductor-prototype` → `/engineering:grill-with-docs`
 

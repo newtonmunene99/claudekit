@@ -91,8 +91,8 @@ Insert programme header in `tracks.md` from `templates/tracks-programme-header.m
 Spawn when review has **ARCH-N** findings that **block** future refactors (dependency language: "cannot spec until", "depends on boundary decision"):
 
 - `track_role: decision`
-- `deliverable: <bundle-root>/decisions/<slug>.md` (e.g. `<pkg>/knowledge/decisions/<slug>.md`)
-- Scaffold OKF bundle at resolved repo path (see `templates/knowledge/bundle-placement-guide.md`)
+- `deliverable: .adr/decisions/<slug>.md`
+- Scaffold the local decision bundle `.adr/` from `templates/adr/` (see **Decision Bundle** in the protocol)
 - Append backlog gating for dependent ARCH items
 - No production code except docs/knowledge corrections
 
@@ -117,9 +117,9 @@ For each track:
 
 1. Write spec, plan, index, metadata (with programme fields)
 2. Append to `tracks.md` under programme header
-3. Decision track: scaffold OKF knowledge bundle + decisions index + log entries
+3. Decision track: scaffold the decision bundle `.adr/` (its `.gitignore`, index, decisions index, log)
 
-Commit only when **Conductor files** is `committed` in **Working Agreements**: `conductor(track): Add programme '<programme_id>'`. An OKF knowledge scaffold outside `conductor/` is committed in either mode.
+Commit only when **Conductor files** is `committed` in **Working Agreements**: `conductor(track): Add programme '<programme_id>'`. The decision bundle `.adr/` is never committed in either mode unless the user asks; an OKF knowledge scaffold for project docs outside `conductor/` is committed in either mode.
 
 ## Implement and status
 
