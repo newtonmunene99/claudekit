@@ -56,7 +56,7 @@ End the report with a **Top recommendation** section: which candidate you'd tack
 
 See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
 
-Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
+Do NOT propose interfaces yet. After the file is written, ask the user which candidate to explore with the **AskUserQuestion** tool (the question dialog), not in chat: header `Candidate`, question "Which of these would you like to explore?", one option per candidate (label: its short name; description: its strength badge and the problem in one line), your top recommendation first with " (Recommended)" on its label. The tool takes at most 4 options, so with more candidates list the strongest 4; the user can still name another through the dialog's "Other". Only when the tool is unavailable, ask in chat with a numbered list.
 
 ### 3. Grilling loop
 
