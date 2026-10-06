@@ -191,7 +191,7 @@ For detailed plan authoring rules, resolve `templates/plan-authoring-guide.md` f
 
 ## User Prompt Protocol
 
-For every gate that requires user input, prefer Claude Code's native **AskUserQuestion** tool — its `header`, `question`, `options` (label + description), and `multiSelect` fields map directly onto the question specs in each skill. When the tool is unavailable, fall back to chat:
+For every gate that requires user input, prefer Claude Code's native **AskUserQuestion** tool — its `header`, `question`, `options` (label + description, and an optional `preview`), and `multiSelect` fields map directly onto the question specs in each skill. When the tool is unavailable, fall back to chat:
 
 1. Present a clear header (e.g. `## Git Workflow`).
 2. List numbered options when offering choices.
@@ -203,6 +203,7 @@ For every gate that requires user input, prefer Claude Code's native **AskUserQu
 8. **Hand checks go in plain chat.** Manual verification steps and their "does this work?" question are plain text, never a structured prompt tool: users answer them with screenshots, logs, and several defects at once.
 9. **Skip what is already answered** in **Working Agreements** (see below).
 10. **Show what you ask about.** An approve, confirm, or revise gate is asked only after its subject is in the chat or in the question itself: the design section, the draft's key points, the exact commands. Reasoning is invisible to the user, so a design worked out there and then put to "Approve?" is asking blind.
+11. **Preview the code when options are code.** When a question's options are alternative shapes (an interface, a function signature, a module or file layout, a config, a schema or data model, a UI sketch), give each option a `preview` with a short snippet or ASCII mockup of that alternative, so the user compares them side by side instead of from labels. Keep each preview to what differs, about 5 to 20 lines. Previews work on single-select questions only; leave them off plain preference and yes/no gates.
 
 ## Working Agreements Protocol
 
