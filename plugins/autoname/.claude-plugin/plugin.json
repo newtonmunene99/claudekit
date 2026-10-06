@@ -1,7 +1,7 @@
 {
   "name": "autoname",
-  "version": "0.1.1",
-  "description": "Names a session Claude Code left unnamed: after the first turn, a short Haiku-made slug via /rename, and a matching /color.",
+  "version": "0.2.0",
+  "description": "Names a session Claude Code left unnamed: after the first turn, a short Haiku-made slug via /rename, and a matching /color. /autoname names it on demand from more of the session.",
   "author": { "name": "newtonmunene99" },
   "types": "./types/index.d.ts",
   "userConfig": {
