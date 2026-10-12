@@ -15,6 +15,46 @@ const PANE = 'conductor-board'
 const snapshot = atom({ plugin: 'conductor', key: 'snapshot' } as const, null)
 const isBandHidden = atom({ plugin: 'conductor', key: 'isBandHidden' } as const, false)
 
+// The band's colours match the statusline mod's pills, so the two read as one.
+const TONE = {
+  purple: '#e6def5',
+  grey: '#e6e6e6',
+  red: '#f6dcd6',
+  yellow: '#f6ecd2',
+  blue: '#dbe3f6',
+} as const
+const INK = '#2b2b2b'
+const ACCENT = '#7a5cc4'
+const TRACK = '#b5b5b5'
+const LEVEL = { ok: '#5a9a68' } as const
+
+// Boxes have no corner radius, so chips end in half-disc glyphs in their own
+// colour. The terminal's are Powerline's (Ghostty bundles them; the `ends`
+// option squares them for fonts without); a desktop gets Unicode half circles
+// and keeps its native, already rounded, buttons.
+const CAPS = { terminal: ['\ue0b6', '\ue0b4'], other: ['◖', '◗'] } as const
+
+// The track mark spins while a turn runs. The timer starts on the first draw
+// that sees one and stops on the first that does not.
+const SPIN = ['◐', '◓', '◑', '◒']
+let spin: { timer: { cancel: () => void }; frame: number } | null = null
+
+function spinFrame($: EngineInterface): string {
+  if (!spin) {
+    const next = { frame: 0, timer: $.clock.every(250, () => {
+      next.frame += 1
+      $.ui.invalidate('ui.render')
+    }) }
+    spin = next
+  }
+  return SPIN[spin.frame % SPIN.length] ?? '◆'
+}
+
+function stopSpin(): void {
+  spin?.timer.cancel()
+  spin = null
+}
+
 const scriptPath = ($: EngineInterface) => `${$.plugin.root}/scripts/conductor_state.py`
 
 // Module state resets on reload; session.start then fires again and refills it.
@@ -118,7 +158,9 @@ async function openBoard($: EngineInterface): Promise<string> {
     : 'Conductor board is waiting for a wider terminal.'
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const isRound = options.ends !== 'square'
+
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({
@@ -177,42 +219,84 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const s = await read($, snapshot)
     if (e.props.hasSurvey || !hasBand(s) || !s?.plan || (await read($, isBandHidden))) {
+      stopSpin()
       return next(e)
     }
     // Another plugin's band beneath stays, under this one.
     const beneath = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const p = s.plan
-    const filled = p.total ? Math.round((p.done / p.total) * 10) : 0
-    const flags = [
-      p.blocked.length ? `${p.blocked.length} blocked` : '',
-      p.deferred.length ? `${p.deferred.length} deferred` : '',
-      s.inFlight.length > 1 ? `+${s.inFlight.length - 1} in flight` : '',
-    ].filter(Boolean)
-    const nextLine = p.next
-      ? `next: ${p.next.content}`
-      : (p.blockedReason ?? 'all todos done; run review')
+    const width = 10
+    const filled = p.total ? Math.round((p.done / p.total) * width) : 0
+    const phase = p.next?.phase ?? p.openPhases[0] ?? null
+    const phaseAt = phase ? p.phases.indexOf(phase) : -1
+    const flags: { key: string; tone: string; text: string }[] = []
+    if (p.blocked.length) flags.push({ key: 'blocked', tone: TONE.red, text: `${p.blocked.length} blocked` })
+    if (p.deferred.length) flags.push({ key: 'deferred', tone: TONE.yellow, text: `${p.deferred.length} deferred` })
+    if (s.inFlight.length > 1) flags.push({ key: 'inflight', tone: TONE.blue, text: `+${s.inFlight.length - 1} in flight` })
+    const mark = e.props.isWorking ? spinFrame($) : '◆'
+    if (!e.props.isWorking) stopSpin()
+
+    const [left, right] = e.surface === 'terminal' ? CAPS.terminal : CAPS.other
+    const chip = (key: string, bg: string, parts: JSX.Element[] | JSX.Element) => (
+      <Box key={key} flexDirection="row">
+        {isRound && <Text color={bg}>{left}</Text>}
+        <Box flexDirection="row" gap={1} paddingX={isRound ? 0 : 1} backgroundColor={bg}>
+          {parts}
+        </Box>
+        {isRound && <Text color={bg}>{right}</Text>}
+      </Box>
+    )
+    const button = (key: 'board' | 'hide', label: string, hotkey: string | undefined, onPress: () => unknown) => {
+      if (e.surface !== 'terminal') return <Button key={key} label={label} hotkey={hotkey} onPress={onPress} />
+      const bg = key === 'board' ? TONE.blue : TONE.grey
+      const text = hotkey ? `${hotkey} ${label}` : label
+      return (
+        <Button key={key} label={label} hotkey={hotkey} plain onPress={onPress}>
+          {isRound ? <Text color={bg}>{left}</Text> : ''}
+          <Text color={INK} backgroundColor={bg}>{isRound ? text : ` ${text} `}</Text>
+          {isRound ? <Text color={bg}>{right}</Text> : ''}
+        </Button>
+      )
+    }
 
     // No width on the outer box: the engine refuses its own drawing (beneath)
     // under a Box with a width, and would drop the whole band.
     return (
       <Box flexDirection="column">
         <Box flexDirection="column" width={e.props.bodyColumns}>
-          <Box flexDirection="row" gap={1}>
-            <Text bold color="cyan">◆ {s.trackId}</Text>
-            <Text>
-              {'█'.repeat(filled)}
-              {'░'.repeat(10 - filled)} {p.done}/{p.total}
-            </Text>
-            {flags.length > 0 && <Text color="yellow">{flags.join(' · ')}</Text>}
+          <Box flexDirection="row" gap={1} flexWrap="wrap">
+            {chip('track', TONE.purple, [
+              <Text key="mark" color={e.props.isWorking ? LEVEL.ok : ACCENT} backgroundColor={TONE.purple}>{mark}</Text>,
+              <Text key="id" color={INK} backgroundColor={TONE.purple} bold>{s.trackId}</Text>,
+            ])}
+            {chip('progress', TONE.grey, [
+              <Text key="bar" color={LEVEL.ok} backgroundColor={TONE.grey}>
+                {'█'.repeat(filled)}
+                <Text color={TRACK}>{'░'.repeat(width - filled)}</Text>
+              </Text>,
+              <Text key="count" color={INK} backgroundColor={TONE.grey} bold>{`${p.done}/${p.total}`}</Text>,
+              ...(phaseAt >= 0
+                ? [<Text key="phase" color={INK} backgroundColor={TONE.grey} dimColor>{`│ phase ${phaseAt + 1}/${p.phases.length}`}</Text>]
+                : []),
+            ])}
+            {flags.map(f => chip(f.key, f.tone, <Text color={INK} backgroundColor={f.tone}>{f.text}</Text>))}
             <Box flexGrow={1} />
-            <Button key="board" label="Board" hotkey="b" onPress={() => openBoard($)} />
-            <Button key="hide" label="Hide" onPress={async () => {
-                await update($, isBandHidden, () => true)
-                await syncStatus($)
-              }} />
+            {button('board', 'Board', 'b', () => openBoard($))}
+            {button('hide', 'Hide', undefined, async () => {
+              await update($, isBandHidden, () => true)
+              await syncStatus($)
+            })}
           </Box>
-          <Text dimColor wrap="truncate-end">{nextLine}</Text>
+          {p.next ? (
+            <Box flexDirection="row" gap={1}>
+              <Text dimColor>next</Text>
+              <Text bold color={ACCENT}>{p.next.id}</Text>
+              <Text wrap="truncate-end">{p.next.content}</Text>
+            </Box>
+          ) : (
+            <Text dimColor wrap="truncate-end">{p.blockedReason ?? 'all todos done; run review'}</Text>
+          )}
         </Box>
         {beneath}
       </Box>
