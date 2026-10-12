@@ -147,8 +147,26 @@ class ArchiveTrack(unittest.TestCase):
             status: completed
         ---
         """)
+    self.p.write("conductor/specs/grid_20260101/metadata.json",
+                 '{"track_id": "grid_20260101", "status": "in_progress"}')
     self.p.write("conductor/specs/toolbar_20260102/metadata.json",
-                 '{"depends_on": ["grid_20260101"]}')
+                 '{"depends_on": ["grid_20260101"], "status": "in_progress"}')
+    self.p.write("conductor/specs/toolbar_20260102/index.md",
+                 "- [Plan](../../plans/toolbar_d4e5f6.plan.md)\n")
+    self.p.write("conductor/plans/toolbar_d4e5f6.plan.md", """
+        ---
+        name: Toolbar
+        todos:
+          - id: build-toolbar
+            status: completed
+          - id: build-icons
+            status: pending
+          - id: verify-p1
+            status: pending
+          - id: conductor-sync-complete
+            status: pending
+        ---
+        """)
 
   def tearDown(self):
     self._tmp.cleanup()
@@ -183,6 +201,40 @@ class ArchiveTrack(unittest.TestCase):
     self.assertEqual(code, 3)
     self.assertIn("not_completed", out["needs_confirmation"])
     self.assertFalse(self.exists("conductor/archive/toolbar_20260102"))
+
+  def test_archive_marks_a_completed_track_completed(self):
+    out, _ = self.p.run("archive", "grid_20260101")
+    self.assertEqual(out["status"], "completed")
+    meta = json.loads(self.read("conductor/archive/grid_20260101/metadata.json"))
+    self.assertEqual(meta["status"], "completed")
+
+  def test_forced_archive_of_unfinished_track_marks_it_cancelled_and_keeps_fields(self):
+    out, code = self.p.run("archive", "toolbar_20260102", "--force")
+    self.assertEqual((code, out["status"]), (0, "cancelled"))
+    meta = json.loads(self.read("conductor/archive/toolbar_20260102/metadata.json"))
+    self.assertEqual(meta["status"], "cancelled")
+    self.assertEqual(meta["depends_on"], ["grid_20260101"])
+
+  def test_status_flag_overrides(self):
+    out, code = self.p.run("archive", "toolbar_20260102", "--force", "--status", "completed")
+    self.assertEqual((code, out["status"]), (0, "completed"))
+
+  def test_status_flag_rejects_unknown_values(self):
+    out, code = self.p.run("archive", "toolbar_20260102", "--force", "--status", "done")
+    self.assertEqual(code, 1)
+    self.assertIn("--status", out["error"])
+
+  def test_open_hand_check_alone_still_counts_as_completed(self):
+    plan = "conductor/plans/toolbar_d4e5f6.plan.md"
+    self.p.write(plan, self.read(plan).replace(
+        "build-icons\n    status: pending", "build-icons\n    status: completed"))
+    out, _ = self.p.run("archive", "toolbar_20260102", "--force")
+    self.assertEqual(out["status"], "completed")
+
+  def test_track_without_metadata_archives_with_null_status(self):
+    os.remove(os.path.join(self.p.root, "conductor/specs/grid_20260101/metadata.json"))
+    out, _ = self.p.run("archive", "grid_20260101")
+    self.assertIsNone(out["status"])
 
   def test_tracks_lists_completed_tracks_that_can_be_archived(self):
     out, _ = self.p.run("tracks")
