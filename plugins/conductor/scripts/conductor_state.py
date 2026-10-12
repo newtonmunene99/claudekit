@@ -1055,6 +1055,16 @@ def _doctor_fix():
     index = os.path.join(o["archive"], "index.md")
     _write(index, read_text(index).replace(f"../../plans/{base}", f"./{base}"))
     fixed.append(f"moved {o['plan']} into {o['archive']}")
+  # After the moves above, so a plan left behind counts as evidence.
+  now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+  for t in _stale_tracks()["archive"]:
+    if t["suggested"] is None:
+      continue
+    meta_path = os.path.join(ARCHIVE_DIR, t["track_id"], "metadata.json")
+    meta = json.loads(read_text(meta_path) or "{}")
+    meta["status"], meta["updated_at"] = t["suggested"], now
+    _write(meta_path, json.dumps(meta, indent=2) + "\n")
+    fixed.append(f"stale_track_status: {t['track_id']} -> {t['suggested']}")
   if os.path.isfile(BACKLOG_FILE):
     lines = read_text(BACKLOG_FILE).replace("\r\n", "\n").split("\n")
     seen, drop = set(), set()
