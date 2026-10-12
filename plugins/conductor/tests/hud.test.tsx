@@ -175,7 +175,7 @@ describe('hud', () => {
         props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
       })
       expect(await ui.find({ type: 'Text', text: /track-a/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /next: Reject expired/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^Reject expired/ })).toBeDefined()
       await ui.unmount()
     }
     for (const surface of ['terminal', 'desktop'] as const) {
@@ -197,6 +197,23 @@ describe('hud', () => {
       component: 'AbovePrompt',
       props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
     })
+    // Terminal buttons are round-ended chips.
+    expect(await band.find({ type: 'Text', text: 'b Board' })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: '' })).toBeDefined()
+    // Track chip, phase, warning chips and the next todo's id.
+    expect(await band.find({ type: 'Text', text: '◆' })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: /^│ phase \d+\/\d+$/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: /^\d+ deferred$/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: 'token-expiry' })).toBeDefined()
+    // The mark spins while a turn runs.
+    const working = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } as never,
+    })
+    expect(await working.find({ type: 'Text', text: /^[◐◓◑◒]$/ })).toBeDefined()
+    await working.unmount()
     await band.press({ key: 'hide' })
     expect(status).toBe('track-a 7/12')
     await band.unmount()

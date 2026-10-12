@@ -56,11 +56,13 @@ On Claude Code builds with function hooks, the plugin also loads `hooks/register
 | Piece | What it does |
 | :---- | :----------- |
 | Status line | `<track> 7/12` while the band is hidden, or the next eligible track when none is in progress |
-| Band above the prompt | Track, progress bar, blocked and deferred counts, the next todo; **Board** (`b`) and **Hide** buttons |
+| Band above the prompt | Coloured chips in the statusline's palette: the track (its mark spins while a turn runs), progress bar with phase, and red/yellow/blue chips for blocked, deferred and other tracks in flight; the next todo's id and text; **Board** (`b`) and **Hide** buttons |
 | `/conductor-board` | Pane with next todo, parallel batch, waiting and blocked todos, deferred checks, every other track in progress (progress, next todo, its own **Implement**), other tracks, and buttons that fill in `/conductor:conductor-implement`, `review`, `archive` or `status` |
 | Toasts | Phase done, a todo newly blocked, review hitting its 2-round limit, track complete |
 | Upgrade nudge | At session start, a toast when `doctor` finds drift worth `/conductor:conductor-setup` |
 | Status guard | Denies Edit/Write/`sed -i`/redirects that change a todo's `status` in `conductor/plans/` or rewrite `tracks.md`, pointing at `set-todo`. New pending todos and other plan fields pass. It matches spellings, so it is a guardrail, not a boundary; it stays off when `python3` cannot run the script |
+
+In the terminal, the chips and the Board and Hide buttons have round ends drawn with Powerline glyphs (Ghostty bundles them); with a font that lacks them, set **Band chip ends** to `square` in the config menu.
 
 It refreshes after each Edit, Write or Bash call and at the end of every turn, re-running the script only when `tracks.md` or a plan in progress changed. With several tracks in progress, the status line and band follow the one whose plan changed last. Develop it with `claude plugin validate plugins/conductor` and `claude plugin test plugins/conductor`.
 
