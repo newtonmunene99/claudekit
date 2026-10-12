@@ -66,9 +66,16 @@ In the terminal, the chips and the Board and Hide buttons have round ends drawn 
 
 It refreshes after each Edit, Write or Bash call and at the end of every turn, re-running the script only when `tracks.md` or a plan in progress changed. With several tracks in progress, the status line and band follow the one whose plan changed last. Develop it with `claude plugin validate plugins/conductor` and `claude plugin test plugins/conductor`.
 
+## What's new in 1.7.0
+
+- **Programmes from anywhere:** new-track starts a programme from a request for several tracks, a list of 3+ items, or a grilling session, and carries decisions already made into the specs instead of asking again. A design is approved in one prompt.
+- **No more tracks stuck in progress:** archive records `completed` or `cancelled` in the track's metadata, and `doctor` repairs archived tracks still marked open.
+- **Backlog sorting:** when no next track is ready, Track Cleanup offers to sort the backlog (Keep / Promote / Drop, up to 4 items per prompt); status shows the open count.
+- **Local files stay local:** `Keep local` writes `conductor/.gitignore` (`*`) instead of editing your root `.gitignore`; `doctor --fix` moves the old root line.
+
 ## Upgrading an existing project
 
-Run `/conductor:conductor-setup` again. On a project that is already set up it runs `doctor`, applies the mechanical repairs (plans stranded by old archives, archived tracks still marked in progress, duplicated backlog items, contradictory `.gitignore` advice), adds **Working Agreements**, refreshes stale workflow sections while keeping project-specific lines, and stamps the version in `conductor/context/index.md`. `/conductor:conductor-status` says when a project is out of date.
+Run `/conductor:conductor-setup` again. On a project that is already set up it runs `doctor`, applies the mechanical repairs (plans stranded by old archives, archived tracks still marked in progress, duplicated backlog items, contradictory `.gitignore` advice, an old `conductor/` line in the root `.gitignore`), adds **Working Agreements**, refreshes stale workflow sections while keeping project-specific lines, and stamps the version in `conductor/context/index.md`. `/conductor:conductor-status` says when a project is out of date.
 
 ## Evals
 
@@ -120,7 +127,7 @@ See [OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/mai
 
 ## Artifacts
 
-- **Conductor:** `conductor/context/`, `conductor/specs/`, `conductor/plans/`, `conductor/reviews/`, `conductor/archive/`. Commit them, or keep `conductor/` gitignored; setup records the choice in **Working Agreements** and every command follows it.
+- **Conductor:** `conductor/context/`, `conductor/specs/`, `conductor/plans/`, `conductor/reviews/`, `conductor/archive/`. Commit them, or keep them local (`conductor/.gitignore` holds `*`); setup records the choice in **Working Agreements** and every command follows it.
 - **OKF knowledge:** `knowledge/` or `<pkg>/knowledge/` in the repository
 
 ## Attribution
