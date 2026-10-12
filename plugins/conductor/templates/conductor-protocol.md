@@ -126,6 +126,20 @@ Rules:
 
 Headings group items; in a file with no checkbox items, each heading is an item. Discovered work that is out of the current track's scope gets one line here, never a silent fix.
 
+## Backlog Sorting Protocol
+
+Run when the user picks a sort (Track Cleanup's `Archive, then sort the backlog (<N> open)`) or asks to sort the backlog.
+
+1. Run `conductor_state.py backlog`. The items to sort are those with `status: open`, in file order; `open` is their count. With none, say "Backlog is empty." and stop.
+2. Ask about up to **4 items per User Prompt Protocol call**, one question per item: header = the title cut to 12 characters, question = the title and its one-line summary. Options: **Keep** / **Promote** / **Drop**. **Keep** is `(Recommended)` unless the item names work that is already finished or obsolete; then recommend **Drop** and say why in the option's description.
+3. Apply each verdict:
+    - **Keep:** leave the line as it is.
+    - **Drop:** ask nothing more. Rewrite the line in **Backlog Format**: `- [x] **Title** — decided YYYY-MM-DD: not building, because <reason the user gave, or "dropped in backlog sort">; reopen if <condition the user gave, or "it comes up again">.` A reason or condition typed in the free-text answer is used as given.
+    - **Promote:** collect the item's slug; nothing is written yet.
+4. **Cap:** stop after 3 prompts (12 items) and say how many open items remain ("8 more open; sort again any time.").
+5. **Promote last.** After sorting, when any items were promoted, run `/conductor:conductor-new-track backlog:<slug>[,<slug>...]` with every promoted slug. New-track marks each promoted line (one item or two form one track; three or more start a programme).
+6. Commit `backlog.md` only when **Conductor files** is `committed` (**Git Write Policy**). Report in one line: kept, dropped, promoted, remaining.
+
 ## Knowledge Bundle Resolution
 
 **PROTOCOL:** When writing or reading OKF knowledge (project docs, domain docs, decision deliverables):
