@@ -101,7 +101,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
                 - **placeholder:** "e.g., Implement user authentication"
             Await the user's response and use it as the track description.
         3. If `duplicates` is non-empty, mention it in one line ("backlog.md repeats N items; want me to dedupe it?") and offer the cleanup once.
-    *   **If `{{args}}` is `backlog:<slug>` or names a backlog item:** find the item in the `backlog` output (slug first, then title). Its title and body are the description, and any "Notes for next session" under it are verified context. If the item sits under a programme section, or its text names a programme, inherit that `programme_id` and set `order` to the programme's highest `order` + 1. Remember the item's line for promotion (§2.5 step 7b).
+    *   **If `{{args}}` is `backlog:<slug>[,<slug>...]` or names a backlog item:** find each item in the `backlog` output (slug first, then title). Their titles and bodies, joined, are the description, and any "Notes for next session" under them are verified context. One or two items form one track; three or more are a list of 3+ items and enter programme mode (§2.1b). If an item sits under a programme section, or its text names a programme, inherit that `programme_id` and set `order` to the programme's highest `order` + 1. Remember every item's line for promotion (§2.5 step 7b, or §2.5p in programme mode).
     *   **If `{{args}}` contains a description:**
         1. Use the content of `{{args}}` as the track description.
         2. **Infer Track Type:** Analyze the description to determine if it is a "Feature" or "Something Else" (e.g., Bug, Chore, Refactor). Do NOT ask the user to classify it.
@@ -371,7 +371,7 @@ Use `templates/knowledge/decision-concept.md` for the OKF deliverable shape (`ty
           *Spec: [../specs/<track_id>/spec.md](../specs/<track_id>/spec.md)*
           *Plan: [../plans/<slug>_<shortid>.plan.md](../plans/<slug>_<shortid>.plan.md)*
         ```
-7b. **Promote the backlog item** (when the track came from one): rewrite its line as ``- [x] **<title>** — promoted YYYY-MM-DD to track `<track_id>`.`` For a heading-style backlog, append ``_(promoted YYYY-MM-DD to `<track_id>`)_`` to the heading. Keep the item's body; it records why the track exists.
+7b. **Promote the backlog items** (when the track came from any): rewrite every promoted item's line as ``- [x] **<title>** — promoted YYYY-MM-DD to track `<track_id>`.`` For a heading-style backlog, append ``_(promoted YYYY-MM-DD to `<track_id>`)_`` to the heading. Keep the item's body; it records why the track exists.
 8.  **Commit Conductor Files (only when Conductor files is `committed`):**
     -   Follow **Working Agreements** and the **Git Write Policy** in templates/conductor-protocol.md for all files created or modified in this workflow (spec, plan, index, metadata, **Tracks Registry**, backlog). An OKF knowledge scaffold outside `conductor/` is committed in either mode.
     -   Suggested message: `conductor(track): Add track '<track_description>'` or `conductor(track): Add programme '<programme_id>'`.
@@ -385,6 +385,7 @@ After Confirm Programme, for each track in sequence:
 1. Run §2.5 steps 1–5 (check name, track ID, directory, metadata with programme fields, write files).
 2. Run §2.5b if decision track.
 3. Append track entry under programme header in `tracks.md`.
+3b. Mark each promoted backlog item with the track that took it (§2.5 step 7b format).
 4. Single commit for entire programme preferred (Git Write Policy applies once).
 
 
