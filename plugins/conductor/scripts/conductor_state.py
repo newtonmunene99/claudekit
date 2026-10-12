@@ -771,13 +771,18 @@ def cmd_track_status(args):
     fh.write("\n".join(lines))
   now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
   meta_path = os.path.join(SPECS_DIR, track_id, "metadata.json")
-  meta = load_metadata(track_id)
+  written = False
   if os.path.isfile(meta_path):
-    meta["status"], meta["updated_at"] = meta_status, now
-    with open(meta_path, "w", encoding="utf-8") as fh:
-      fh.write(json.dumps(meta, indent=2) + "\n")
-  return {"track_id": track_id, "status": status, "updated_at": now,
-          "metadata": os.path.isfile(meta_path)}, 0
+    meta = read_json_object(meta_path)
+    if meta is None:
+      # Rewriting it would replace whatever was there with two fields and hide the damage.
+      written = "unreadable"
+    else:
+      meta["status"], meta["updated_at"] = meta_status, now
+      with open(meta_path, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(meta, indent=2) + "\n")
+      written = True
+  return {"track_id": track_id, "status": status, "updated_at": now, "metadata": written}, 0
 
 
 # --- doctor ------------------------------------------------------------------
