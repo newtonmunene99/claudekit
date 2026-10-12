@@ -581,6 +581,56 @@ class Doctor(unittest.TestCase):
     self.assertIn(f"<!-- conductor: {out['plugin_version']} -->", self.read("conductor/context/index.md"))
     self.assertNotIn("unstamped_version", self.ids(out))
 
+  # Stale-status fixtures live in the tests: the two above assert exact id lists.
+  def issue(self, out, issue_id):
+    return next((i for i in out["issues"] if i["id"] == issue_id), None)
+
+  def plan(self, rel, statuses):
+    todos = "".join(f"  - id: {tid}\n    status: {st}\n" for tid, st in statuses)
+    self.p.write(rel, f"---\nname: Plan\ntodos:\n{todos}---\n")
+
+  def test_reports_archived_tracks_still_marked_in_progress(self):
+    self.p.write("conductor/archive/old_20260101/metadata.json", '{"status": "in_progress"}')
+    self.plan("conductor/archive/old_20260101/old_a1.plan.md",
+              [("build", "pending"), ("verify-p1", "pending")])
+    self.p.write("conductor/archive/shipped_20260102/metadata.json", '{"status": "in_progress"}')
+    self.plan("conductor/archive/shipped_20260102/shipped_b2.plan.md",
+              [("build", "completed"), ("verify-p1", "pending"), ("conductor-sync-complete", "pending")])
+    self.p.write("conductor/archive/bare_20260103/metadata.json", '{"status": "new"}')
+    out, _ = self.p.run("doctor")
+    issue = self.issue(out, "stale_track_status")
+    self.assertEqual(issue["fix"], "auto")
+    self.assertEqual(sorted((t["track_id"], t["suggested"]) for t in issue["tracks"]), [
+        ("bare_20260103", None), ("old_20260101", "cancelled"), ("shipped_20260102", "completed")])
+
+  def test_reports_open_tracks_whose_work_is_all_done(self):
+    self.p.write("conductor/context/tracks.md", """
+        # Tracks
+
+        - [~] **Track: Done**
+          *Spec: [../specs/done_20260102/spec.md](../specs/done_20260102/spec.md)*
+          *Plan: [../plans/done_c3.plan.md](../plans/done_c3.plan.md)*
+
+        - [~] **Track: Busy**
+          *Spec: [../specs/busy_20260103/spec.md](../specs/busy_20260103/spec.md)*
+          *Plan: [../plans/busy_d4.plan.md](../plans/busy_d4.plan.md)*
+
+        - [~] **Track: Empty**
+          *Spec: [../specs/empty_20260104/spec.md](../specs/empty_20260104/spec.md)*
+          *Plan: [../plans/empty_e5.plan.md](../plans/empty_e5.plan.md)*
+        """)
+    for tid in ("done_20260102", "busy_20260103", "empty_20260104"):
+      self.p.write(f"conductor/specs/{tid}/metadata.json", '{"status": "in_progress"}')
+    self.plan("conductor/plans/done_c3.plan.md", [("build", "completed"), ("verify-p1", "pending")])
+    self.plan("conductor/plans/busy_d4.plan.md", [("build", "pending")])
+    self.p.write("conductor/plans/empty_e5.plan.md", "---\nname: Empty\ntodos: []\n---\n")
+    out, _ = self.p.run("doctor")
+    issue = self.issue(out, "finished_track_open")
+    self.assertEqual(issue["fix"], "skill")
+    self.assertEqual([(t["track_id"], t["suggested"]) for t in issue["tracks"]],
+                     [("done_20260102", "completed")])
+    self.assertIsNone(self.issue(out, "stale_track_status"))
+
 
 class DoctorLegacyDecisions(unittest.TestCase):
   """Decisions Conductor wrote into knowledge/ bundles move to the local .adr/.

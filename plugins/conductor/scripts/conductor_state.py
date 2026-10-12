@@ -941,6 +941,45 @@ def _migrate_decisions():
   return fixed
 
 
+def _stale_tracks():
+  """Tracks whose metadata still says new or in_progress although they ended.
+
+  archive: archived folders; suggested comes from the work todos of the plan
+  archived beside them, or is None when there is no such evidence (the ledger
+  line is always [x], so the registry proves nothing). active: registered
+  tracks whose work todos are all done but were never closed.
+  """
+  out = {"archive": [], "active": []}
+  open_states = ("new", "in_progress")
+  archived = set()
+  if os.path.isdir(ARCHIVE_DIR):
+    for tid in sorted(os.listdir(ARCHIVE_DIR)):
+      folder = os.path.join(ARCHIVE_DIR, tid)
+      meta_path = os.path.join(folder, "metadata.json")
+      if not os.path.isdir(folder):
+        continue
+      archived.add(tid)
+      if not os.path.isfile(meta_path):
+        continue
+      status = json.loads(read_text(meta_path) or "{}").get("status")
+      if status not in open_states:
+        continue
+      plans = sorted(f for f in os.listdir(folder) if f.endswith(".plan.md"))
+      todos = _plan_todos(os.path.join(folder, plans[0])) if plans else []
+      suggested = _status_from_todos(todos, False) if _work_todos(todos) else None
+      out["archive"].append({"track_id": tid, "status": status, "suggested": suggested})
+  if os.path.isfile(TRACKS_FILE):
+    for t in parse_registry(read_text(TRACKS_FILE)):
+      tid = t["track_id"]
+      if not tid or tid in archived:
+        continue
+      status = load_metadata(tid).get("status")
+      work = _work_todos(_plan_todos(t.get("plan")))
+      if status in open_states and work and all(w.get("status") in TERMINAL for w in work):
+        out["active"].append({"track_id": tid, "status": status, "suggested": "completed"})
+  return out
+
+
 def _doctor_issues():
   issues = []
   plugin_version = _plugin_version()
@@ -971,6 +1010,17 @@ def _doctor_issues():
   if orphans:
     issues.append({"id": "orphaned_plans", "fix": "auto",
                    "detail": ", ".join(o["plan"] for o in orphans)})
+  stale = _stale_tracks()
+  if stale["archive"]:
+    issues.append({"id": "stale_track_status", "fix": "auto",
+                   "detail": ", ".join(t["track_id"] for t in stale["archive"])
+                   + " (archived but still marked open; ones without a plan need a person)",
+                   "tracks": stale["archive"]})
+  if stale["active"]:
+    issues.append({"id": "finished_track_open", "fix": "skill",
+                   "detail": ", ".join(t["track_id"] for t in stale["active"])
+                   + " (every work todo done, track never closed)",
+                   "tracks": stale["active"]})
   dups = cmd_backlog([])[0]["duplicates"]
   if dups:
     issues.append({"id": "backlog_duplicates", "fix": "auto",
