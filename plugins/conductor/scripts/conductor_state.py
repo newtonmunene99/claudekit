@@ -179,18 +179,21 @@ def parse_registry(text):
   return tracks
 
 
+def read_json_object(path):
+  """The JSON object in path, or None when it is missing, unreadable or not an object."""
+  try:
+    with open(path, encoding="utf-8") as fh:
+      data = json.load(fh)
+  except (OSError, ValueError):
+    return None
+  return data if isinstance(data, dict) else None
+
+
 def load_metadata(track_id):
   path = os.path.join(SPECS_DIR, track_id, "metadata.json")
   if not os.path.isfile(path):
     path = os.path.join(ARCHIVE_DIR, track_id, "metadata.json")
-  if not os.path.isfile(path):
-    return {}
-  try:
-    with open(path, encoding="utf-8") as fh:
-      data = json.load(fh)
-    return data if isinstance(data, dict) else {}
-  except (OSError, ValueError):
-    return {}
+  return read_json_object(path) or {}
 
 
 def cmd_tracks(_args):
@@ -600,13 +603,14 @@ def _archive_registry_entry(text, track_id):
 
 
 def cmd_archive(args):
+  has_status = "--status" in args
   status, args = _flag(list(args), "--status")
   ids = [a for a in args if not a.startswith("--")]
   force = "--force" in args
   usage = "usage: conductor_state.py archive <track_id> [--force] [--status completed|cancelled]"
   if len(ids) != 1:
     return {"error": usage}, 1
-  if status is not None and status not in ("completed", "cancelled"):
+  if has_status and status not in ("completed", "cancelled"):
     return {"error": f"--status must be completed or cancelled; {usage}"}, 1
   track_id = ids[0]
   if not os.path.isfile(TRACKS_FILE):
@@ -625,6 +629,8 @@ def cmd_archive(args):
   deferred = [t["id"] for t in todos if t.get("status") == "deferred"]
   # Decided before anything moves, so the confirmation and the write agree.
   final = status or _status_from_todos(todos, track is not None and track["status"] == "completed")
+  # Read before anything moves: bad metadata must never leave a half-archive.
+  meta = read_json_object(os.path.join(spec_dir, "metadata.json"))
 
   reasons = []
   if track is None or track["status"] != "completed":
@@ -650,8 +656,7 @@ def cmd_archive(args):
 
   written = None
   meta_path = os.path.join(dest, "metadata.json")
-  if os.path.isfile(meta_path):
-    meta = json.loads(read_text(meta_path) or "{}")
+  if meta is not None:
     meta["status"] = final
     meta["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     _write(meta_path, json.dumps(meta, indent=2) + "\n")
@@ -959,9 +964,10 @@ def _stale_tracks():
       if not os.path.isdir(folder):
         continue
       archived.add(tid)
-      if not os.path.isfile(meta_path):
+      meta = read_json_object(meta_path)
+      if meta is None:
         continue
-      status = json.loads(read_text(meta_path) or "{}").get("status")
+      status = meta.get("status")
       if status not in open_states:
         continue
       plans = sorted(f for f in os.listdir(folder) if f.endswith(".plan.md"))
@@ -974,8 +980,11 @@ def _stale_tracks():
       if not tid or tid in archived:
         continue
       status = load_metadata(tid).get("status")
-      work = _work_todos(_plan_todos(t.get("plan")))
-      if status in open_states and work and all(w.get("status") in TERMINAL for w in work):
+      todos = _plan_todos(t.get("plan"))
+      # A pending hand check is the normal wait for a person, not a stale track.
+      rest = [x for x in todos if x["id"] not in SYNC_IDS]
+      if (status in open_states and _work_todos(todos)
+          and all(x.get("status") in TERMINAL for x in rest)):
         out["active"].append({"track_id": tid, "status": status, "suggested": "completed"})
   return out
 
@@ -1019,7 +1028,7 @@ def _doctor_issues():
   if stale["active"]:
     issues.append({"id": "finished_track_open", "fix": "skill",
                    "detail": ", ".join(t["track_id"] for t in stale["active"])
-                   + " (every work todo done, track never closed)",
+                   + " (every todo and hand check done, track never closed)",
                    "tracks": stale["active"]})
   dups = cmd_backlog([])[0]["duplicates"]
   if dups:
@@ -1061,7 +1070,9 @@ def _doctor_fix():
     if t["suggested"] is None:
       continue
     meta_path = os.path.join(ARCHIVE_DIR, t["track_id"], "metadata.json")
-    meta = json.loads(read_text(meta_path) or "{}")
+    meta = read_json_object(meta_path)
+    if meta is None:
+      continue
     meta["status"], meta["updated_at"] = t["suggested"], now
     _write(meta_path, json.dumps(meta, indent=2) + "\n")
     fixed.append(f"stale_track_status: {t['track_id']} -> {t['suggested']}")

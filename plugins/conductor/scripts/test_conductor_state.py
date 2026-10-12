@@ -237,6 +237,17 @@ class ArchiveTrack(unittest.TestCase):
     out, _ = self.p.run("archive", "toolbar_20260102", "--force")
     self.assertEqual(out["status"], "completed")
 
+  def test_malformed_metadata_never_leaves_a_half_archive(self):
+    self.p.write("conductor/specs/grid_20260101/metadata.json", "{bad")
+    out, code = self.p.run("archive", "grid_20260101")
+    self.assertEqual((code, out["status"]), (0, None))
+    self.assertIn("(archived)", self.read("conductor/context/tracks.md"))
+
+  def test_status_flag_without_a_value_is_an_error(self):
+    out, code = self.p.run("archive", "toolbar_20260102", "--force", "--status")
+    self.assertEqual(code, 1)
+    self.assertIn("--status", out["error"])
+
   def test_track_without_metadata_archives_with_null_status(self):
     os.remove(os.path.join(self.p.root, "conductor/specs/grid_20260101/metadata.json"))
     out, _ = self.p.run("archive", "grid_20260101")
@@ -619,6 +630,13 @@ class Doctor(unittest.TestCase):
     left = self.issue(out, "stale_track_status")
     self.assertEqual([t["track_id"] for t in left["tracks"]], ["bare_20260103"])
 
+  def test_odd_metadata_does_not_break_doctor(self):
+    self.p.write("conductor/archive/odd_20260101/metadata.json", "[1]")
+    self.p.write("conductor/archive/bad_20260102/metadata.json", "{bad")
+    out, code = self.p.run("doctor", "--fix")
+    self.assertEqual(code, 0, out)
+    self.assertIsNone(self.issue(out, "stale_track_status"))
+
   def test_reports_open_tracks_whose_work_is_all_done(self):
     self.p.write("conductor/context/tracks.md", """
         # Tracks
@@ -631,14 +649,21 @@ class Doctor(unittest.TestCase):
           *Spec: [../specs/busy_20260103/spec.md](../specs/busy_20260103/spec.md)*
           *Plan: [../plans/busy_d4.plan.md](../plans/busy_d4.plan.md)*
 
+        - [~] **Track: Waiting**
+          *Spec: [../specs/wait_20260105/spec.md](../specs/wait_20260105/spec.md)*
+          *Plan: [../plans/wait_f6.plan.md](../plans/wait_f6.plan.md)*
+
         - [~] **Track: Empty**
           *Spec: [../specs/empty_20260104/spec.md](../specs/empty_20260104/spec.md)*
           *Plan: [../plans/empty_e5.plan.md](../plans/empty_e5.plan.md)*
         """)
-    for tid in ("done_20260102", "busy_20260103", "empty_20260104"):
+    for tid in ("done_20260102", "busy_20260103", "empty_20260104", "wait_20260105"):
       self.p.write(f"conductor/specs/{tid}/metadata.json", '{"status": "in_progress"}')
-    self.plan("conductor/plans/done_c3.plan.md", [("build", "completed"), ("verify-p1", "pending")])
+    self.plan("conductor/plans/done_c3.plan.md",
+              [("build", "completed"), ("verify-p1", "completed"), ("conductor-sync-complete", "pending")])
     self.plan("conductor/plans/busy_d4.plan.md", [("build", "pending")])
+    # Work done, hand check still open: the normal wait for a person, not stale.
+    self.plan("conductor/plans/wait_f6.plan.md", [("build", "completed"), ("verify-p1", "pending")])
     self.p.write("conductor/plans/empty_e5.plan.md", "---\nname: Empty\ntodos: []\n---\n")
     out, _ = self.p.run("doctor")
     issue = self.issue(out, "finished_track_open")
@@ -646,6 +671,8 @@ class Doctor(unittest.TestCase):
     self.assertEqual([(t["track_id"], t["suggested"]) for t in issue["tracks"]],
                      [("done_20260102", "completed")])
     self.assertIsNone(self.issue(out, "stale_track_status"))
+    out, _ = self.p.run("doctor", "--fix")
+    self.assertEqual(json.loads(self.read("conductor/specs/done_20260102/metadata.json"))["status"], "in_progress")
 
 
 class DoctorLegacyDecisions(unittest.TestCase):
