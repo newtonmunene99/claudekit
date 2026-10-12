@@ -88,7 +88,8 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   **Eligible:** comma-separated track ids/descriptions; append `(∥)` when multiple parallel-ready
     -   **Blocked:** `<track>` waits on `<depends_on>` — omit section if none
     -   **Unmerged branches:** for tracks whose `git` (in the `tracks` JSON) names a branch, list those not merged into `git.base` (`git branch --no-merged <base>`, read-only) — omit if none
-    -   **Out of date:** when `doctor` is not `clean`, one line: "Conductor files predate <plugin_version> (<n> items): run `/conductor:conductor-setup` to upgrade." — omit when clean
+    -   **Out of date:** when `doctor` has issues other than `bad_metadata`, one line: "Conductor files predate <plugin_version> (<n> items): run `/conductor:conductor-setup` to upgrade." — omit when there are none
+    -   **Unreadable metadata:** `Unreadable metadata: <paths>` from doctor's `bad_metadata` issue (repair by hand; doctor never rewrites them) — omit when none
     -   **Ready to archive:** ids from `archivable` in the `tracks` JSON, with "`/conductor:conductor-archive`" — omit if none
     -   **Blocked todos:** todos waiting on something external (`blocked` in each plan's JSON), as `<track> <todo>: <on>` — omit if none
     -   **Backlog:** `Backlog: <N> open`, `<N>` being the `open` count from `conductor_state.py backlog` — omit when 0

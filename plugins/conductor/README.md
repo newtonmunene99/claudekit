@@ -75,7 +75,7 @@ It refreshes after each Edit, Write or Bash call and at the end of every turn, r
 
 ## Upgrading an existing project
 
-Run `/conductor:conductor-setup` again. On a project that is already set up it runs `doctor`, applies the mechanical repairs (plans stranded by old archives, archived tracks still marked in progress, duplicated backlog items, contradictory `.gitignore` advice, an old `conductor/` line in the root `.gitignore`), adds **Working Agreements**, refreshes stale workflow sections while keeping project-specific lines, and stamps the version in `conductor/context/index.md`. `/conductor:conductor-status` says when a project is out of date.
+Run `/conductor:conductor-setup` again. On a project that is already set up it runs `doctor`, applies the mechanical repairs (plans stranded by old archives, archived tracks still marked in progress, duplicated backlog items, contradictory `.gitignore` advice, an old `conductor/` line in the root `.gitignore`), reports unreadable track metadata (never rewriting it), adds **Working Agreements**, refreshes stale workflow sections while keeping project-specific lines, and stamps the version in `conductor/context/index.md`. `/conductor:conductor-status` says when a project is out of date.
 
 ## Evals
 
