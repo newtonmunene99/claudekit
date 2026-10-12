@@ -673,6 +673,26 @@ class Doctor(unittest.TestCase):
     out, code = self.p.run("doctor", "--fix")
     self.assertEqual(code, 0, out)
     self.assertIsNone(self.issue(out, "stale_track_status"))
+    self.assertEqual([f["path"] for f in self.issue(out, "bad_metadata")["files"]], [
+        "conductor/archive/bad_20260102/metadata.json", "conductor/archive/odd_20260101/metadata.json"])
+
+  def test_reports_unreadable_metadata_and_never_rewrites_it(self):
+    bad = {"conductor/specs/a_20260101/metadata.json": "{bad",
+           "conductor/specs/b_20260102/metadata.json": "[1]",
+           "conductor/archive/e_20260105/metadata.json": "{bad",
+           "conductor/archive/f_20260106/metadata.json": "[1]"}
+    for rel, text in bad.items():
+      self.p.write(rel, text)
+    self.p.write("conductor/specs/c_20260103/metadata.json", '{"status": "new"}')
+    self.p.write("conductor/specs/d_20260104/spec.md", "# Spec\n")
+    out, _ = self.p.run("doctor")
+    issue = self.issue(out, "bad_metadata")
+    self.assertEqual(issue["fix"], "skill")
+    self.assertEqual([f["path"] for f in issue["files"]], sorted(bad))
+    self.assertTrue(all(f["is_tracked"] is False for f in issue["files"]))
+    self.p.run("doctor", "--fix")
+    for rel, text in bad.items():
+      self.assertEqual(self.read(rel), text)
 
   def test_reports_open_tracks_whose_work_is_all_done(self):
     self.p.write("conductor/context/tracks.md", """
