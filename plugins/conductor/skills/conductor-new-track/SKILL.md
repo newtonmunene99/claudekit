@@ -166,7 +166,7 @@ The approved list is the **Settled decisions** list. A brainstorm or spec questi
 
 4.  **Clarifying Questions:** Ask **one question per **User Prompt Protocol** call** (do not batch during brainstorm). Focus on purpose, constraints, and success criteria. Prefer multiple-choice when possible.
 5.  **Approaches:** Propose **2–3 options** with trade-offs and your recommendation.
-6.  **Section-by-Section Design:** Present architecture, data flow, error handling, and testing approach in sections. Write each section as chat text in the same reply as its approval prompt: the new or changed types and functions by name, the behaviour, the edge cases, and every decision you made that the user did not choose. Working a section out in your reasoning is not presenting it; the user never sees your reasoning. Then use the **User Prompt Protocol** for approval, with the section's two or three key decisions in the question so it can be answered on its own. Never ask to approve a section the chat does not show.
+6.  **Design Summary:** Present the whole design (architecture, data flow, error handling, testing approach) as chat text in one reply, one short section each: the new or changed types and functions by name, the behaviour, the edge cases, and every decision you made that the user did not choose. Working a section out in your reasoning is not presenting it; the user never sees your reasoning. Then use the **User Prompt Protocol** once, listing each section's two or three key decisions in the question so it can be answered on its own. Options: **Approve (Recommended)** / **Revise** (the user names the section and change) / **Section by section** (present and approve each section in turn, as its own reply and prompt). Never ask to approve a section the chat does not show.
 7.  **YAGNI Gate:** Even "simple" tracks get a design — it may be brief, but must be presented and approved.
 8.  **Transition:** Proceed to §2.3 (the design was shown and approved in step 6; do not restate it).
 
@@ -280,7 +280,7 @@ For each track in the approved programme split:
 1. Draft `spec.md` from its assigned findings or items (cite review paths and IDs when the source is a review). Include a **Decisions** section with the **Settled decisions** lines relevant to this track; do not ask anything they answer.
 2. Decision tracks: use `templates/decision-track-spec.md` as skeleton.
 3. Run spec self-review (§2.3 step 4) per track.
-4. Batch spec approval via the **User Prompt Protocol** per track OR single programme spec review (user choice).
+4. **Programme spec review:** one **User Prompt Protocol** call covering every spec: per track, the path, the goal in one line, the FR count, the AC count and what is out of scope. Options: **Approve all (Recommended)** / **Revise** (the user names the track and change) / **Track by track** (the §2.3 step 5 prompt per spec).
 
 ### 2.4p Programme plan generation
 
