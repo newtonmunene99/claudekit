@@ -1,9 +1,21 @@
 {
   "name": "statusline",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A status line as a mod: 5-hour and weekly limits, context, tokens and cost above the prompt; folder, branch, model, session name and id under it.",
   "author": {
     "name": "newtonmunene99"
   },
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "ends": {
+      "type": "string",
+      "title": "Pill ends",
+      "description": "round draws half-disc caps (the terminal's need a font with Powerline symbols, which Ghostty bundles); square draws plain boxes that work in any font.",
+      "options": [
+        "round",
+        "square"
+      ],
+      "default": "round"
+    }
+  }
 }

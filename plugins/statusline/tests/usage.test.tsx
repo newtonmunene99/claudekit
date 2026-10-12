@@ -59,6 +59,28 @@ describe('band', () => {
     await ui.unmount()
   })
 
+  test('rounds the pill ends by default', async ($, on) => {
+    stubUsage(on)
+    engineDraws(on)
+    const caps = { terminal: '', desktop: '◖' }
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...BAND, surface })
+      expect(await ui.find({ type: 'Text', text: caps[surface] })).toBeDefined()
+      await ui.unmount()
+    }
+  })
+
+  test('square ends draw no caps', { options: { ends: 'square' } }, async ($, on) => {
+    stubUsage(on)
+    engineDraws(on)
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...BAND, surface })
+      expect(await ui.find({ type: 'Text', text: /^[◖◗]$/ })).toBeUndefined()
+      expect(await ui.find({ type: 'Text', text: /^\$ 4\.71$/ })).toBeDefined()
+      await ui.unmount()
+    }
+  })
+
   test('keeps the cost pill at 40 columns', async ($, on) => {
     stubUsage(on)
     engineDraws(on)

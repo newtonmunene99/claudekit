@@ -18,6 +18,8 @@ A row of pills, wrapping when the window is narrow:
 
 Bars turn yellow at 70% and red at 90%. A figure with no reading yet is left out. Token totals count every model request of this session's turns and start at 0 when a session is resumed, so they can run below what the cost covers. Another plugin's band (Conductor's track band) stays, under the pills.
 
+Pills have round ends by default. In the terminal those are Powerline glyphs, which Ghostty bundles; with a font that lacks them, set **Pill ends** to `square` in the config menu (or `"ends": "square"` under `pluginConfigs.statusline` in settings).
+
 ## Under the prompt
 
 At the end of the hint line (terminal only): `folder (branch✗) · model · name · id`. ✗ means git has uncommitted changes; a detached HEAD shows the short commit. The session's name shows when it has one (a `/rename` shows from the next prompt), then the first 8 characters of the session id.
