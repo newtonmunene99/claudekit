@@ -524,6 +524,22 @@ class WriteSubcommands(unittest.TestCase):
     stamp = datetime.datetime.strptime(meta["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
         tzinfo=datetime.timezone.utc)
     self.assertGreaterEqual(stamp, before)
+    self.assertIs(out["metadata"], True)
+
+  def test_track_status_never_overwrites_unreadable_metadata(self):
+    self.p.write("conductor/specs/grid_20260101/metadata.json", "{bad")
+    out, code = self.p.run("track-status", "grid_20260101", "in_progress")
+    self.assertEqual(code, 0, out)
+    self.assertIn("- [~] **Track: Grid view**", self.read("conductor/context/tracks.md"))
+    self.assertEqual(self.read("conductor/specs/grid_20260101/metadata.json"), "{bad")
+    self.assertEqual(out["metadata"], "unreadable")
+
+  def test_track_status_without_metadata_still_marks_the_registry(self):
+    os.remove(os.path.join(self.p.root, "conductor/specs/grid_20260101/metadata.json"))
+    out, code = self.p.run("track-status", "grid_20260101", "completed")
+    self.assertEqual(code, 0, out)
+    self.assertIn("- [x] **Track: Grid view**", self.read("conductor/context/tracks.md"))
+    self.assertIs(out["metadata"], False)
 
 
 class Doctor(unittest.TestCase):
