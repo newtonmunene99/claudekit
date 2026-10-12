@@ -1,6 +1,6 @@
 # Conductor Programme Planning Guide
 
-Use when `/conductor:conductor-new-track` enters **programme mode** (a review, a multi-track request, a list of 3+ items, or grilling output → N tracks). Load after specs and draft plans exist, before **Confirm Programme**.
+Use when `/conductor:conductor-new-track` enters **programme mode** (a review, a multi-track request, a list of 3+ items, or grilling output → N tracks). new-track loads it at programme step 3 for detection and the split; the synthesis sections apply after specs and draft plans exist, before **Confirm Programme**.
 
 Reference example: `docs/examples/remediation-programme-example.md`.
 
@@ -13,7 +13,7 @@ Reference example: `docs/examples/remediation-programme-example.md`.
 | Description mentions "remediation" or "review findings" | review document | Programme mode |
 | User asks for a programme or several tracks | request or list | Programme mode |
 | Description or conversation lists 3+ distinct items | request or list | Programme mode |
-| Conversation holds grilling or design-review output, or a handoff's settled list | grilling | Programme mode |
+| Conversation holds grilling or design-review output, or a handoff's settled list, that settles 2+ items or tracks | grilling | Programme mode |
 | Otherwise | none | Single-track flow |
 
 Whatever the source, decisions already made in the conversation become the **Settled decisions** list (new-track §2.1c), go into each spec's **Decisions** section, and are not asked again.

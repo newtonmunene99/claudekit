@@ -19,7 +19,7 @@ Follow `${CLAUDE_PLUGIN_ROOT}/templates/conductor-protocol.md` for file resoluti
 
 Follow **Agent Output Style** in `templates/conductor-protocol.md` and `templates/output-style.md`.
 
-**New-track-specific:** Line 1 = current phase (brainstorm | spec | plan) and the one thing the user should do. Restate approved design in ≤5 bullets before drafting spec. On completion: "Run `/conductor:conductor-implement` on `<track_id>`."
+**New-track-specific:** Line 1 = current phase (brainstorm | spec | plan) and the one thing the user should do. Show the whole design once (§2.2 step 6); do not restate it before drafting the spec. On completion: "Run `/conductor:conductor-implement` on `<track_id>`."
 
 ## Plugin Template Path
 
@@ -117,7 +117,7 @@ After loading the track description, check for **programme mode**:
 | Description mentions "remediation" or "review findings" | review document | Enter programme mode |
 | User asks for a programme or several tracks ("programme", "several tracks", "N tracks") | request or list | Enter programme mode |
 | Description or conversation lists 3+ distinct items | request or list | Enter programme mode |
-| This conversation holds grilling or design-review output (`engineering:grilling`, `grill-with-docs`, `improve-codebase-architecture`, or a handoff's settled list) | grilling | Enter programme mode |
+| This conversation holds grilling or design-review output (`engineering:grilling`, `grill-with-docs`, `improve-codebase-architecture`, or a handoff's settled list) that settles 2+ items or tracks | grilling | Enter programme mode |
 | Otherwise | none | Continue to §2.1c, then the single-track flow (§2.2) |
 
 **Programme mode protocol:**
@@ -126,15 +126,17 @@ Steps 1 and 2 apply only when the source is a review document. For any other sou
 
 1. Resolve and read the review document via **Reviews Directory** (Universal File Resolution).
 2. Check for validation addendum (`<review-stem>_validation.md`) or validation section. If missing, announce: "Run `/conductor:conductor-validate-review` first" and use the **User Prompt Protocol** — opt out only if user explicitly accepts unvalidated programme.
-3. Load `templates/programme-planning-guide.md` from **Plugin Template Path**.
+3. Load `templates/programme-planning-guide.md` from **Plugin Template Path**, then run **§2.1c Settled decisions** so nothing below re-asks what is already decided.
 4. Count the findings or items and classify axes (trust, lifecycle, registry, docs, architecture).
 5. **Split vs monolith** — **User Prompt Protocol**:
    - **header:** "Programme split"
    - **type:** choice
    - **options:** Split into N tracks (recommended when 3+ items or 2+ axes) | Single monolith track | Custom split (user describes)
+   - When the **Settled decisions** list already fixes the split, skip this prompt and state the split in one line.
+   - **Single monolith track** leaves programme mode: continue with the single-track flow (§2.2), keeping the **Settled decisions** list, so the design is still approved before any spec.
 6. If ARCH-N findings block future refactors, include a **decision track** (see §2.5b).
 7. Optional: suggest `/engineering:improve-codebase-architecture` (engineering plugin) for architecture deepening before split.
-8. Run **§2.1c Settled decisions**, then skip §2.2–2.4 single-track loops; use **§2.3p Programme specs**, **§2.4p Programme plans**, **§2.4b Programme synthesis**, then **§2.5p Programme artifacts**.
+8. Skip §2.2–2.4 single-track loops; use **§2.3p Programme specs**, **§2.4p Programme plans**, **§2.4b Programme synthesis**, then **§2.5p Programme artifacts**.
 
 ### 2.1c Settled decisions
 
@@ -146,7 +148,7 @@ Before any brainstorm question, collect what is already decided: decisions made 
 
 Then use the **User Prompt Protocol** once: **Use these (Recommended)** / **Revise** (the user corrects, adds or drops lines). An empty list skips this step silently.
 
-The approved list is the **Settled decisions** list. A brainstorm or spec question whose answer is on it is not asked. In the single-track flow, when the list covers purpose, approach and success criteria, go straight to the design approval: §2.2 step 6, or the summary in the lightweight flow. In programme mode this step continues to §2.3p.
+The approved list is the **Settled decisions** list. A brainstorm or spec question whose answer is on it is not asked. In the single-track flow, when the list covers purpose, approach and success criteria, go straight to the design approval: run §2.2 steps 2–3 and the Triage exit check, skip the clarifying questions and approaches, then present §2.2 step 6 (or the summary in the lightweight flow). In programme mode this step returns to programme step 4.
 
 ### 2.2 Brainstorm and Design
 
@@ -172,7 +174,7 @@ The approved list is the **Settled decisions** list. A brainstorm or spec questi
 
 #### If SOMETHING ELSE (Bug, Chore, Refactor — lightweight flow)
 
-Skip multi-approach design. Use **one question per **User Prompt Protocol** call** to cover: reproduction/scope, root-cause hypothesis (bugs), proposed fix approach, success criteria, and out-of-scope. Summarize and get approval via the **User Prompt Protocol**, then proceed to §2.3.
+Skip multi-approach design. Use **one question per **User Prompt Protocol** call**, skipping what the **Settled decisions** list answers, to cover: reproduction/scope, root-cause hypothesis (bugs), proposed fix approach, success criteria, and out-of-scope. Summarize and get approval via the **User Prompt Protocol**, then proceed to §2.3.
 
 ### 2.3 Interactive Specification Generation (`spec.md`)
 
@@ -201,7 +203,7 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
         *   **3. Interaction Flow:**
             *   Wait for the user's response after each **User Prompt Protocol** tool call.
             *   If the user selects "Other", use a subsequent **User Prompt Protocol** tool call with `type: "text"` to get their input if necessary.
-            *   Confirm your understanding by summarizing before moving on to drafting.
+            *   Confirm your understanding of the answers given in this phase by summarizing them before moving on to drafting.
 
     *   **If FEATURE:**
         *   **Ask up to 3-4 relevant questions** to clarify the feature request using the **User Prompt Protocol**.
@@ -220,6 +222,7 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
     - **Internal consistency:** No contradicting sections; architecture matches feature descriptions.
     - **Scope check:** Focused enough for a single implementation plan, or needs decomposition.
     - **Ambiguity check:** Requirements interpretable only one way; make implicit choices explicit.
+    - **Decisions check:** The **Decisions** section carries every relevant **Settled decisions** line as approved, and no requirement contradicts one.
 
 5.  **User Confirmation:**
     -   **Ask for Approval:** Use the **User Prompt Protocol** with the draft's path and a summary: the goal in one line, each functional requirement in one line, the number of acceptance criteria, and what is out of scope. Embed the full text only when it is under ~80 lines. On **Revise**, edit the file and show only what changed.
