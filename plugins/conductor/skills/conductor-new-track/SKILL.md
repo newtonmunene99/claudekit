@@ -118,7 +118,7 @@ After loading the track description, check for **programme mode**:
 | User asks for a programme or several tracks ("programme", "several tracks", "N tracks") | request or list | Enter programme mode |
 | Description or conversation lists 3+ distinct items | request or list | Enter programme mode |
 | This conversation holds grilling or design-review output (`engineering:grilling`, `grill-with-docs`, `improve-codebase-architecture`, or a handoff's settled list) | grilling | Enter programme mode |
-| Otherwise | none | Continue single-track flow (§2.2) |
+| Otherwise | none | Continue to §2.1c, then the single-track flow (§2.2) |
 
 **Programme mode protocol:**
 
@@ -136,11 +136,23 @@ Steps 1 and 2 apply only when the source is a review document. For any other sou
 7. Optional: suggest `/engineering:improve-codebase-architecture` (engineering plugin) for architecture deepening before split.
 8. Run **§2.1c Settled decisions**, then skip §2.2–2.4 single-track loops; use **§2.3p Programme specs**, **§2.4p Programme plans**, **§2.4b Programme synthesis**, then **§2.5p Programme artifacts**.
 
+### 2.1c Settled decisions
+
+Before any brainstorm question, collect what is already decided: decisions made in this conversation (a grilling session, a design discussion, the user's own answers), in `{{args}}`, in a handoff's notes, or in an `.adr/decisions/` concept the description names. Write each as one line in chat:
+
+```
+- <decision> — <source>
+```
+
+Then use the **User Prompt Protocol** once: **Use these (Recommended)** / **Revise** (the user corrects, adds or drops lines). An empty list skips this step silently.
+
+The approved list is the **Settled decisions** list. A brainstorm or spec question whose answer is on it is not asked. In the single-track flow, when the list covers purpose, approach and success criteria, go straight to the design approval: §2.2 step 6, or the summary in the lightweight flow. In programme mode this step continues to §2.3p.
+
 ### 2.2 Brainstorm and Design
 
 **HARD-GATE:** Do NOT draft `spec.md`, create a plan, or write implementation code until the user has approved the design for this track.
 
-1.  **State Your Goal:** One line: "Brainstorm: I'll ask about purpose and constraints before writing the spec." (No multi-paragraph intro.)
+1.  **State Your Goal:** One line: "Brainstorm: I'll ask only what the Settled decisions list leaves open." (No multi-paragraph intro.)
 
 2.  **Explore Context:** Read **Product Definition**, **Tech Stack**, and relevant codebase areas related to the track description.
 
@@ -156,7 +168,7 @@ Steps 1 and 2 apply only when the source is a review document. For any other sou
 5.  **Approaches:** Propose **2–3 options** with trade-offs and your recommendation.
 6.  **Section-by-Section Design:** Present architecture, data flow, error handling, and testing approach in sections. Write each section as chat text in the same reply as its approval prompt: the new or changed types and functions by name, the behaviour, the edge cases, and every decision you made that the user did not choose. Working a section out in your reasoning is not presenting it; the user never sees your reasoning. Then use the **User Prompt Protocol** for approval, with the section's two or three key decisions in the question so it can be answered on its own. Never ask to approve a section the chat does not show.
 7.  **YAGNI Gate:** Even "simple" tracks get a design — it may be brief, but must be presented and approved.
-8.  **Transition:** Summarize the approved design, then proceed to §2.3.
+8.  **Transition:** Proceed to §2.3 (the design was shown and approved in step 6; do not restate it).
 
 #### If SOMETHING ELSE (Bug, Chore, Refactor — lightweight flow)
 
@@ -168,7 +180,7 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
 
     **Drafts live on disk.** Run §2.5 steps 1–2 now (name check, track id). Write each draft straight to its final path (`conductor/specs/<track_id>/spec.md`, then the plan file) and review it there. The registry entry, metadata, and index are written only after approval (§2.5), so an abandoned draft never shows up as a track. Printing a whole spec or plan in chat and then writing it again doubles the cost and buries the decision.
 
-2.  **Questioning Phase (if gaps remain):** Ask follow-up questions using the **User Prompt Protocol**. You may batch up to 4 related questions in a single tool call. Tailor questions based on the track type (Feature or Other).
+2.  **Questioning Phase (if gaps remain):** Ask follow-up questions using the **User Prompt Protocol**, only on gaps the approved design and the **Settled decisions** list leave open; with no gaps, ask none and go to step 3. You may batch up to 4 related questions in a single tool call. Tailor questions based on the track type (Feature or Other).
     *   **CRITICAL:** Wait for the user's response after each **User Prompt Protocol** tool call.
     *   **General Guidelines:**
         *   Refer to information in **Product Definition**, **Tech Stack**, etc., to ask context-aware questions.
@@ -192,16 +204,16 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
             *   Confirm your understanding by summarizing before moving on to drafting.
 
     *   **If FEATURE:**
-        *   **Ask 3-4 relevant questions** to clarify the feature request using the **User Prompt Protocol**.
+        *   **Ask up to 3-4 relevant questions** to clarify the feature request using the **User Prompt Protocol**.
         *   Examples include clarifying questions about the feature, how it should be implemented, interactions, inputs/outputs, etc.
         *   Tailor the questions to the specific feature request (e.g., if the user didn't specify the UI, ask about it; if they didn't specify the logic, ask about it).
 
     *   **If SOMETHING ELSE (Bug, Chore, etc.):**
-        *   **Ask 2-3 relevant questions** to obtain necessary details using the **User Prompt Protocol**.
+        *   **Ask up to 2-3 relevant questions** to obtain necessary details using the **User Prompt Protocol**.
         *   Examples include reproduction steps for bugs, specific scope for chores, or success criteria.
         *   Tailor the questions to the specific request.
 
-3.  **Draft `spec.md`:** Draft the content for the track's `spec.md` file from the approved design, including sections like Overview, Functional Requirements, Non-Functional Requirements (if any), Acceptance Criteria, and Out of Scope.
+3.  **Draft `spec.md`:** Draft the content for the track's `spec.md` file from the approved design, including sections like Overview, **Decisions** (the relevant **Settled decisions** lines, with their sources; omit when the list is empty), Functional Requirements, Non-Functional Requirements (if any), Acceptance Criteria, and Out of Scope.
 
 4.  **Spec Self-Review:** Before user confirmation, review the draft with fresh eyes and fix inline:
     - **Placeholder scan:** No TBD, TODO, incomplete sections, or vague requirements.
@@ -265,7 +277,7 @@ Skip multi-approach design. Use **one question per **User Prompt Protocol** call
 
 For each track in the approved programme split:
 
-1. Draft `spec.md` from assigned findings (reference review paths and IDs).
+1. Draft `spec.md` from its assigned findings or items (cite review paths and IDs when the source is a review). Include a **Decisions** section with the **Settled decisions** lines relevant to this track; do not ask anything they answer.
 2. Decision tracks: use `templates/decision-track-spec.md` as skeleton.
 3. Run spec self-review (§2.3 step 4) per track.
 4. Batch spec approval via the **User Prompt Protocol** per track OR single programme spec review (user choice).
