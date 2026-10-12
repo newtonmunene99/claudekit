@@ -228,6 +228,43 @@ describe('hud', () => {
     expect(toasts).toEqual([])
   })
 
+  test('unreadable metadata alone does not nag to upgrade', async ($, on) => {
+    engineDraws(on)
+    const toasts: string[] = []
+    let doctor: unknown = {}
+    on('session.start', ($: unknown, e: { cwd: string }) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs: 1, isLink: false } }))
+    on('process.run', ($, e) => ({
+      value: {
+        exitCode: 0,
+        stdout: JSON.stringify(
+          e.argv.includes('doctor') ? doctor : e.argv.includes('tracks') ? TRACKS : planJson(),
+        ),
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }))
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', ($, e) => {
+      toasts.push(e.text)
+      return { value: undefined }
+    })
+    const bad = { id: 'bad_metadata', fix: 'skill', detail: 'conductor/specs/a/metadata.json' }
+    doctor = { plugin_version: '1.7.1', project_version: '1.7.1', issues: [bad] }
+    await $.session.start({ cwd: ROOT } as never)
+    expect(toasts).toEqual([])
+    doctor = { plugin_version: '1.7.1', project_version: '1.6.0',
+      issues: [bad, { id: 'orphaned_plans', fix: 'auto', detail: 'x' }] }
+    await $.session.start({ cwd: ROOT } as never)
+    expect(toasts).toEqual([
+      'Conductor files are behind (1.6.0 → 1.7.1, 1 issue). Run /conductor:conductor-setup to upgrade.',
+    ])
+  })
+
   test('moves to the newer track when a second one starts', async ($, on) => {
     engineDraws(on)
     on('session.root', () => ({ value: ROOT }))

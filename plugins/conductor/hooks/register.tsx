@@ -152,8 +152,9 @@ async function refresh($: EngineInterface, force = false): Promise<void> {
 async function nudgeUpgrade($: EngineInterface): Promise<void> {
   const doctor = await runScript($, ['doctor'])
   // A version stamp alone is no drift: every plugin release would nag otherwise.
+  // Unreadable metadata is no drift either: an upgrade can't clear it, a person must.
   const issues: Json[] = (doctor?.issues ?? []).filter(
-    (i: Json) => i.id !== 'not_set_up' && i.fix !== 'stamp',
+    (i: Json) => i.id !== 'not_set_up' && i.fix !== 'stamp' && i.id !== 'bad_metadata',
   )
   if (issues.length === 0) return
   const from = doctor?.project_version ?? 'unstamped'

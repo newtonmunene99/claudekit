@@ -533,6 +533,7 @@ class WriteSubcommands(unittest.TestCase):
     self.assertIn("- [~] **Track: Grid view**", self.read("conductor/context/tracks.md"))
     self.assertEqual(self.read("conductor/specs/grid_20260101/metadata.json"), "{bad")
     self.assertEqual(out["metadata"], "unreadable")
+    self.assertEqual(out["metadata_path"], "conductor/specs/grid_20260101/metadata.json")
 
   def test_track_status_without_metadata_still_marks_the_registry(self):
     os.remove(os.path.join(self.p.root, "conductor/specs/grid_20260101/metadata.json"))
