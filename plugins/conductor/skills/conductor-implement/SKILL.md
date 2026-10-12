@@ -283,7 +283,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
     | Case | Options, in order |
     | ---- | ----------------- |
-    | Eligible next tracks exist | `Archive and continue to <id>` (Recommended; `<id>` = the lowest-`order` eligible track), `Skip and continue to <id>`, **Review**, then `Choose next track…` when 2+ tracks are eligible, else **Hand off** when offered, else **Archive** |
+    | Eligible next tracks exist | `Archive and continue to <id>` (Recommended; `<id>` = the lowest-`order` eligible track), `Skip and continue to <id>`, **Review**, then `Choose next track…` when 2+ tracks are eligible, else **Hand off** when offered, else **Archive**. With 2+ eligible tracks and **Hand off** offered, **Hand off** takes Review's slot. |
     | No eligible track; the backlog has open items | `Archive, then sort the backlog (<N> open)` (Recommended), **Review**, **Skip**, **Delete** (**Hand off**, when offered, takes Delete's slot) |
     | No eligible track; no open backlog items | **Archive** (Recommended), **Review**, **Skip**, **Delete** (**Hand off**, when offered, takes Delete's slot) |
 
