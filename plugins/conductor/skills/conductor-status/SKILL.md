@@ -91,6 +91,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     -   **Out of date:** when `doctor` is not `clean`, one line: "Conductor files predate <plugin_version> (<n> items): run `/conductor:conductor-setup` to upgrade." — omit when clean
     -   **Ready to archive:** ids from `archivable` in the `tracks` JSON, with "`/conductor:conductor-archive`" — omit if none
     -   **Blocked todos:** todos waiting on something external (`blocked` in each plan's JSON), as `<track> <todo>: <on>` — omit if none
+    -   **Backlog:** `Backlog: <N> open`, `<N>` being the `open` count from `conductor_state.py backlog` — omit when 0
     -   **Deferred checks:** hand checks the user postponed (`deferred` in each plan's JSON), as `<track> <phase>`; a track whose only open todos are deferred checks is "complete, unverified" — omit if none
     -   **Verdict:** On track | Behind | Blocked (one word + optional reason)
     -   Include current timestamp on its own line after the next-action line

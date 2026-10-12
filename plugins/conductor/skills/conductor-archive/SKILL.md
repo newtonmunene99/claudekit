@@ -53,3 +53,5 @@ For each selected track:
 ## 5.0 ANNOUNCE
 
 One line per archived track, then the next step: the next eligible track from `tracks` (`/conductor:conductor-implement <track_id>`), or `/conductor:conductor-new-track` when none is eligible.
+
+Then run `conductor_state.py backlog`; when its `open` count `<N>` is above 0, add one line: `Backlog: <N> open — sort it at the next cleanup or ask.` No prompt here.
