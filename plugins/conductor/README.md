@@ -94,7 +94,13 @@ python3 -m unittest discover plugins/conductor/scripts
 
 ## Programme mode
 
-From `conductor/reviews/*.md` → validate → split tracks → synthesis → implement in order (continue via explicit cleanup choices when unblocked).
+Starts from any of:
+
+- a review in `conductor/reviews/*.md` (validate it first with `/conductor:conductor-validate-review`),
+- a request for a programme or several tracks, or a list of 3+ items,
+- a grilling or design session in the same conversation (its decisions are carried into the specs, not asked again).
+
+Then: split tracks → synthesis → implement in order (continue via explicit cleanup choices when unblocked).
 
 Reference: `docs/examples/remediation-programme-example.md`
 

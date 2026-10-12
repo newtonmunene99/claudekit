@@ -1,23 +1,28 @@
 # Conductor Programme Planning Guide
 
-Use when `/conductor:conductor-new-track` enters **programme mode** (multi-finding review → N tracks). Load after specs and draft plans exist, before **Confirm Programme**.
+Use when `/conductor:conductor-new-track` enters **programme mode** (a review, a multi-track request, a list of 3+ items, or grilling output → N tracks). Load after specs and draft plans exist, before **Confirm Programme**.
 
 Reference example: `docs/examples/remediation-programme-example.md`.
 
 ## Programme detection signals
 
-| Signal | Action |
-| ------ | ------ |
-| User references `conductor/reviews/*.md` | Programme mode |
-| Paste includes numbered findings (§3.x, ARCH-N, Addendum) | Programme mode |
-| Description mentions "remediation", "review findings", or ≥6 distinct items | Programme mode |
-| Otherwise | Single-track flow |
+| Signal | Source | Action |
+| ------ | ------ | ------ |
+| User references `conductor/reviews/*.md` | review document | Programme mode |
+| Paste includes numbered findings (§3.x, ARCH-N, Addendum) | review document | Programme mode |
+| Description mentions "remediation" or "review findings" | review document | Programme mode |
+| User asks for a programme or several tracks | request or list | Programme mode |
+| Description or conversation lists 3+ distinct items | request or list | Programme mode |
+| Conversation holds grilling or design-review output, or a handoff's settled list | grilling | Programme mode |
+| Otherwise | none | Single-track flow |
+
+Whatever the source, decisions already made in the conversation become the **Settled decisions** list (new-track §2.1c), go into each spec's **Decisions** section, and are not asked again.
 
 ## Split vs monolith
 
-After reading the review, use the **User Prompt Protocol**:
+After reading the source, use the **User Prompt Protocol**:
 
-- **Default: split** when findings ≥ **6** OR span ≥ **3 axes**
+- **Default: split** when there are **3+** findings or items OR they span **2+ axes**
 - Options: Split into N tracks (recommended) | Single monolith | Custom split
 
 ### Axis classification
@@ -34,7 +39,7 @@ Map each finding to one primary axis. Group adjacent axes into tracks when they 
 
 ## Validation prerequisite
 
-Programme mode requires a review **validation addendum** (from `/conductor:conductor-validate-review`) OR explicit user opt-out via the **User Prompt Protocol** before split.
+When the source is a review document, programme mode requires a review **validation addendum** (from `/conductor:conductor-validate-review`) OR explicit user opt-out via the **User Prompt Protocol** before split. Other sources (a request, a list, grilling output) have no review to validate and skip this step.
 
 ## Cross-track dedup matrix
 
