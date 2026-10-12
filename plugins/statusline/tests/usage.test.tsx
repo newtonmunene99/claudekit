@@ -47,11 +47,24 @@ describe('band', () => {
       expect(await ui.find({ type: 'Text', text: /^ctx$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^\d\d:\d\d$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^4\.71$/ })).toBeDefined()
-      // A thin bar with a marker where the fill ends.
-      expect(await ui.find({ type: 'Text', text: '┃' })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: '━━' })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^25%$/ })).toBeDefined()
       await ui.unmount()
     }
+  })
+
+  // Line-drawing bars and cap glyphs need a monospace grid; the desktop's
+  // proportional font breaks them, so it gets plain square chips.
+  test('the terminal draws a thin bar with a marker; the desktop leaves the bar out', async ($, on) => {
+    stubUsage(on)
+    engineDraws(on)
+    const terminal = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await terminal.find({ type: 'Text', text: '┃' })).toBeDefined()
+    expect(await terminal.find({ type: 'Text', text: '━━' })).toBeDefined()
+    await terminal.unmount()
+    const desktop = await $.ui.mount({ ...BAND, surface: 'desktop' })
+    expect(await desktop.find({ type: 'Text', text: '┃' })).toBeUndefined()
+    expect(await desktop.find({ type: 'Text', text: /━/ })).toBeUndefined()
+    await desktop.unmount()
   })
 
   test('draws Nerd Font icons in the terminal and plain ones elsewhere', async ($, on) => {
@@ -86,15 +99,15 @@ describe('band', () => {
     await ui.unmount()
   })
 
-  test('rounds the pill ends by default', async ($, on) => {
+  test('rounds the pill ends in the terminal only', async ($, on) => {
     stubUsage(on)
     engineDraws(on)
-    const caps = { terminal: '', desktop: '◖' }
-    for (const surface of ['terminal', 'desktop'] as const) {
-      const ui = await $.ui.mount({ ...BAND, surface })
-      expect(await ui.find({ type: 'Text', text: caps[surface] })).toBeDefined()
-      await ui.unmount()
-    }
+    const terminal = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await terminal.find({ type: 'Text', text: '' })).toBeDefined()
+    await terminal.unmount()
+    const desktop = await $.ui.mount({ ...BAND, surface: 'desktop' })
+    expect(await desktop.find({ type: 'Text', text: /^[◖◗]$/ })).toBeUndefined()
+    await desktop.unmount()
   })
 
   test('square ends draw no caps', { options: { ends: 'square' } }, async ($, on) => {
