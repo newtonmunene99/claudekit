@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import {
   ZERO_TOKENS,
   addUsage,
-  barCells,
+  barSegments,
   resetTime,
   identityText,
   level,
@@ -11,11 +11,14 @@ import {
   shortNumber,
 } from '../hooks/format'
 import { buildPills } from '../hooks/pills'
+import type { PillPart } from '../hooks/pills'
 
 const NOW = Date.parse('2026-10-05T12:00:00Z')
 const at = (ms: number) => new Date(NOW + ms).toISOString()
 const H = 3_600_000
-const texts = (p?: { parts: { text: string }[] }) => p?.parts.map(x => x.text)
+// Each part as one token: an icon by name, a bar by percent, text as itself.
+const texts = (p?: { parts: PillPart[] }) =>
+  p?.parts.map(x => (x.kind === 'icon' ? `<${x.icon}>` : x.kind === 'bar' ? `[${x.percent}]` : x.text))
 
 describe('format', () => {
   test('shortens numbers', () => {
@@ -37,10 +40,11 @@ describe('format', () => {
   })
 
   test('fills an 8-cell bar and colours it by threshold', () => {
-    expect(barCells(0)).toBe('░░░░░░░░')
-    expect(barCells(25)).toBe('██░░░░░░')
-    expect(barCells(100)).toBe('████████')
-    expect(barCells(140)).toBe('████████')
+    // The marker takes one cell; it sits at the start at 0% and the end at 100%.
+    expect(barSegments(0)).toEqual({ filled: 0, empty: 7 })
+    expect(barSegments(25)).toEqual({ filled: 2, empty: 5 })
+    expect(barSegments(100)).toEqual({ filled: 7, empty: 0 })
+    expect(barSegments(140)).toEqual({ filled: 7, empty: 0 })
     expect(level(69)).toBe('ok')
     expect(level(70)).toBe('warn')
     expect(level(89)).toBe('warn')
@@ -86,13 +90,17 @@ describe('pills', () => {
   test('builds every pill in order', () => {
     const pills = buildPills(full, tokens, NOW)
     expect(pills.map(p => p.key)).toEqual(['5h', '7d', 'ctx', 'in', 'out', 'cache', 'cost'])
-    expect(texts(pills[0])).toEqual(['5h', '██░░░░░░', '25%', `│ ↻ ${resetTime(full.rateLimits[1]?.resetsAt, NOW, false)}`])
-    expect(texts(pills[1])).toEqual(['7d', '██░░░░░░', '27%', `│ ↻ ${resetTime(full.rateLimits[0]?.resetsAt, NOW, true)}`])
-    expect(texts(pills[1])?.[3]).toMatch(/^│ ↻ (Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d\d:\d\d$/)
-    expect(texts(pills[0])?.[3]).toMatch(/^│ ↻ \d\d:\d\d$/)
-    expect(texts(pills[2])).toEqual(['ctx', '██░░░░░░', '25%'])
-    expect(texts(pills[3])).toEqual(['↑ 214.3k'])
-    expect(texts(pills[6])).toEqual(['$ 4.71'])
+    expect(texts(pills[0])).toEqual([
+      '<limit5h>', '5h', '[25]', '25%', '│', '<reset>', resetTime(full.rateLimits[1]?.resetsAt, NOW, false)])
+    expect(texts(pills[1])).toEqual([
+      '<limit7d>', '7d', '[27]', '27%', '│', '<reset>', resetTime(full.rateLimits[0]?.resetsAt, NOW, true)])
+    expect(texts(pills[1])?.[6]).toMatch(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d\d:\d\d$/)
+    expect(texts(pills[0])?.[6]).toMatch(/^\d\d:\d\d$/)
+    expect(texts(pills[2])).toEqual(['<context>', 'ctx', '[25]', '25%'])
+    expect(texts(pills[3])).toEqual(['<input>', '214.3k'])
+    expect(texts(pills[4])).toEqual(['<output>', '61.2k'])
+    expect(texts(pills[5])).toEqual(['<cache>', '8.58M'])
+    expect(texts(pills[6])).toEqual(['<cost>', '4.71'])
   })
 
   test('off a subscription: no 5h or 7d pill', () => {
@@ -106,8 +114,7 @@ describe('pills', () => {
       tokens,
       NOW,
     )
-    expect(texts(pills[0])).toEqual(['5h', '███████░', '91%'])
-    expect(pills[0]?.parts[1]?.level).toBe('high')
+    expect(texts(pills[0])).toEqual(['<limit5h>', '5h', '[91]', '91%'])
   })
 
   test('nothing measured yet: no pills', () => {

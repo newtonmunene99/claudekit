@@ -45,10 +45,37 @@ describe('band', () => {
       expect(await ui.find({ type: 'Text', text: /^5h$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^7d$/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^ctx$/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /^│ ↻ \d\d:\d\d$/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /^\$ 4\.71$/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^\d\d:\d\d$/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^4\.71$/ })).toBeDefined()
+      // A thin bar with a marker where the fill ends.
+      expect(await ui.find({ type: 'Text', text: '┃' })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: '━━' })).toBeDefined()
       await ui.unmount()
     }
+  })
+
+  test('draws Nerd Font icons in the terminal and plain ones elsewhere', async ($, on) => {
+    stubUsage(on)
+    engineDraws(on)
+    const terminal = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await terminal.find({ type: 'Text', text: '\u{F04C5}' })).toBeDefined()
+    expect(await terminal.find({ type: 'Text', text: '\uEA82' })).toBeDefined()
+    expect(await terminal.find({ type: 'Text', text: '\uF155' })).toBeDefined()
+    await terminal.unmount()
+    const desktop = await $.ui.mount({ ...BAND, surface: 'desktop' })
+    expect(await desktop.find({ type: 'Text', text: '↻' })).toBeDefined()
+    expect(await desktop.find({ type: 'Text', text: '$' })).toBeDefined()
+    expect(await desktop.find({ type: 'Text', text: '\u{F04C5}' })).toBeUndefined()
+    await desktop.unmount()
+  })
+
+  test('plain icons in the terminal for fonts without Nerd Font glyphs', { options: { icons: 'plain' } }, async ($, on) => {
+    stubUsage(on)
+    engineDraws(on)
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: '↻' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '\u{F04C5}' })).toBeUndefined()
+    await ui.unmount()
   })
 
   test('passes when nothing is measured yet', async ($, on) => {
@@ -76,7 +103,7 @@ describe('band', () => {
     for (const surface of ['terminal', 'desktop'] as const) {
       const ui = await $.ui.mount({ ...BAND, surface })
       expect(await ui.find({ type: 'Text', text: /^[◖◗]$/ })).toBeUndefined()
-      expect(await ui.find({ type: 'Text', text: /^\$ 4\.71$/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^4\.71$/ })).toBeDefined()
       await ui.unmount()
     }
   })
@@ -89,7 +116,7 @@ describe('band', () => {
       surface: 'terminal',
       props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 40 } as never,
     })
-    expect(await ui.find({ type: 'Text', text: /^\$ 4\.71$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^4\.71$/ })).toBeDefined()
     await ui.unmount()
   })
 
@@ -161,9 +188,9 @@ describe('band', () => {
       }
     }
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-    expect(await ui.find({ type: 'Text', text: '↑ 214.3k' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: '↓ 61.2k' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: '≋ 8.58M' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '214.3k' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '61.2k' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '8.58M' })).toBeDefined()
     await ui.unmount()
   })
 })

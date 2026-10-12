@@ -1,6 +1,6 @@
 {
   "name": "statusline",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "A status line as a mod: 5-hour and weekly limits, context, tokens and cost above the prompt; folder, branch, model, session name and id under it.",
   "author": {
     "name": "newtonmunene99"
@@ -16,6 +16,16 @@
         "square"
       ],
       "default": "round"
+    },
+    "icons": {
+      "type": "string",
+      "title": "Icons",
+      "description": "nerd draws Nerd Font icons in the terminal (JetBrains Mono Nerd Font and Ghostty carry them); plain draws Unicode arrows that work in any font. Other surfaces always use plain.",
+      "options": [
+        "nerd",
+        "plain"
+      ],
+      "default": "nerd"
     }
   }
 }

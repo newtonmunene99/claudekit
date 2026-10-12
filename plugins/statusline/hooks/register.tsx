@@ -6,9 +6,9 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import { ZERO_TOKENS, addUsage, identityText, modelName } from './format'
+import { ZERO_TOKENS, addUsage, barSegments, identityText, modelName } from './format'
 import { buildPills } from './pills'
-import type { Tone } from './pills'
+import type { Icon, Tone } from './pills'
 
 export const tokens = atom({ plugin: 'statusline', key: 'tokens' } as const, ZERO_TOKENS)
 
@@ -21,8 +21,34 @@ const TONE: Record<Tone, string> = {
   blue: '#dbe3f6',
   yellow: '#f6ecd2',
 }
+// A deeper shade of each pill's tint, for its icons.
+const ACCENT: Record<Tone, string> = {
+  green: '#4f8a5c',
+  purple: '#7a5cc4',
+  grey: '#6f6f6f',
+  red: '#c0563f',
+  blue: '#4a64b8',
+  yellow: '#b58a1b',
+}
 const LEVEL = { ok: '#5a9a68', warn: '#c9a227', high: '#c8553d' } as const
 const INK = '#2b2b2b'
+const TRACK = '#bdbdbd'
+
+// Nerd Font icons in the terminal (the same fonts that carry the Powerline
+// caps); plain Unicode elsewhere, where an empty one is left out.
+const ICONS: Record<'nerd' | 'plain', Record<Icon, string>> = {
+  nerd: {
+    limit5h: '\u{F04C5}',
+    limit7d: '\u{F0B67}',
+    context: '\u{F07AF}',
+    reset: '\uEA82',
+    input: '\uF093',
+    output: '\uF019',
+    cache: '\uEBD2',
+    cost: '\uF155',
+  },
+  plain: { limit5h: '', limit7d: '', context: '', reset: '↻', input: '↑', output: '↓', cache: '≋', cost: '$' },
+}
 
 // Boxes have no corner radius, so each pill ends in half-disc glyphs in its
 // own colour. The terminal's are Powerline's (Ghostty bundles them; a font
@@ -80,6 +106,7 @@ function redraw($: EngineInterface): void {
 
 export const register: Register = (on, options) => {
   const isRound = options.ends !== 'square'
+  const isPlainIcons = options.icons === 'plain'
 
   // A passed reset time drops off with the clock, not with an event.
   on('session.start', async ($, e, next) => {
@@ -138,6 +165,7 @@ export const register: Register = (on, options) => {
     if (pills.length === 0) return beneath
     const { Box, Text } = $.ui.resolve(e)
     const [left, right] = e.surface === 'terminal' ? CAPS.terminal : CAPS.other
+    const icons = ICONS[e.surface === 'terminal' && !isPlainIcons ? 'nerd' : 'plain']
     return (
       // No width on this outer box: the engine refuses its own drawing
       // (beneath) under a Box with a width, and would drop the whole band.
@@ -147,17 +175,43 @@ export const register: Register = (on, options) => {
             <Box key={p.key} flexDirection="row">
               {isRound && <Text color={TONE[p.tone]}>{left}</Text>}
               <Box flexDirection="row" gap={1} paddingX={isRound ? 0 : 1} backgroundColor={TONE[p.tone]}>
-                {p.parts.map((part, i) => (
-                  <Text
-                    key={`${p.key}-${i}`}
-                    color={part.level ? LEVEL[part.level] : INK}
-                    backgroundColor={TONE[p.tone]}
-                    bold={part.isBold}
-                    dimColor={part.isDim}
-                  >
-                    {part.text}
-                  </Text>
-                ))}
+                {p.parts.map((part, i) => {
+                  const key = `${p.key}-${i}`
+                  const bg = TONE[p.tone]
+                  if (part.kind === 'icon') {
+                    const glyph = icons[part.icon]
+                    return glyph ? (
+                      <Text key={key} color={ACCENT[p.tone]} backgroundColor={bg}>
+                        {glyph}
+                      </Text>
+                    ) : null
+                  }
+                  if (part.kind === 'bar') {
+                    const { filled, empty } = barSegments(part.percent)
+                    return (
+                      <Box key={key} flexDirection="row">
+                        {filled > 0 && (
+                          <Text color={LEVEL[part.level]} backgroundColor={bg}>
+                            {'━'.repeat(filled)}
+                          </Text>
+                        )}
+                        <Text color={INK} backgroundColor={bg} bold>
+                          ┃
+                        </Text>
+                        {empty > 0 && (
+                          <Text color={TRACK} backgroundColor={bg}>
+                            {'━'.repeat(empty)}
+                          </Text>
+                        )}
+                      </Box>
+                    )
+                  }
+                  return (
+                    <Text key={key} color={INK} backgroundColor={bg} bold={part.isBold} dimColor={part.isDim}>
+                      {part.text}
+                    </Text>
+                  )
+                })}
               </Box>
               {isRound && <Text color={TONE[p.tone]}>{right}</Text>}
             </Box>
