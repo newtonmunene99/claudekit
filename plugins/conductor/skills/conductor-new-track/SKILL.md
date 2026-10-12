@@ -117,7 +117,7 @@ After loading the track description, check for **programme mode**:
 | Description mentions "remediation" or "review findings" | review document | Enter programme mode |
 | User asks for a programme or several tracks ("programme", "several tracks", "N tracks") | request or list | Enter programme mode |
 | Description or conversation lists 3+ distinct items | request or list | Enter programme mode |
-| This conversation holds grilling or design-review output (`engineering:grilling`, `grill-with-docs`, `improve-codebase-architecture`, or a handoff's settled list) that settles 2+ items or tracks | grilling | Enter programme mode |
+| This conversation holds grilling or design-review output (`engineering:grilling`, `grill-with-docs`, `improve-codebase-architecture`, or a handoff's settled list) that settles 3+ items or names 2+ tracks | grilling | Enter programme mode |
 | Otherwise | none | Continue to §2.1c, then the single-track flow (§2.2) |
 
 **Programme mode protocol:**
@@ -133,7 +133,7 @@ Steps 1 and 2 apply only when the source is a review document. For any other sou
    - **type:** choice
    - **options:** Split into N tracks (recommended when 3+ items or 2+ axes) | Single monolith track | Custom split (user describes)
    - When the **Settled decisions** list already fixes the split, skip this prompt and state the split in one line.
-   - **Single monolith track** leaves programme mode: continue with the single-track flow (§2.2), keeping the **Settled decisions** list, so the design is still approved before any spec.
+   - **Single monolith track** leaves programme mode: continue with the single-track flow (§2.2), keeping the **Settled decisions** list and its shortcut rule, and skipping §2.2 step 3 (the user just chose one track), so the design is still approved before any spec.
 6. If ARCH-N findings block future refactors, include a **decision track** (see §2.5b).
 7. Optional: suggest `/engineering:improve-codebase-architecture` (engineering plugin) for architecture deepening before split.
 8. Skip §2.2–2.4 single-track loops; use **§2.3p Programme specs**, **§2.4p Programme plans**, **§2.4b Programme synthesis**, then **§2.5p Programme artifacts**.

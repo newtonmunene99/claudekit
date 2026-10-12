@@ -98,7 +98,7 @@ Starts from any of:
 
 - a review in `conductor/reviews/*.md` (validate it first with `/conductor:conductor-validate-review`),
 - a request for a programme or several tracks, or a list of 3+ items,
-- a grilling or design session in the same conversation (its decisions are carried into the specs, not asked again).
+- a grilling or design session in the same conversation that settles 3+ items or names 2+ tracks (its decisions are carried into the specs, not asked again).
 
 Then: split tracks → synthesis → implement in order (continue via explicit cleanup choices when unblocked).
 
