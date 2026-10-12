@@ -13,7 +13,7 @@ Reference example: `docs/examples/remediation-programme-example.md`.
 | Description mentions "remediation" or "review findings" | review document | Programme mode |
 | User asks for a programme or several tracks | request or list | Programme mode |
 | Description or conversation lists 3+ distinct items | request or list | Programme mode |
-| Conversation holds grilling or design-review output, or a handoff's settled list, that settles 2+ items or tracks | grilling | Programme mode |
+| Conversation holds grilling or design-review output, or a handoff's settled list, that settles 3+ items or names 2+ tracks | grilling | Programme mode |
 | Otherwise | none | Single-track flow |
 
 Whatever the source, decisions already made in the conversation become the **Settled decisions** list (new-track §2.1c), go into each spec's **Decisions** section, and are not asked again.
