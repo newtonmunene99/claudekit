@@ -610,6 +610,13 @@ class Doctor(unittest.TestCase):
     self.assertIn("moved the conductor/ ignore into conductor/.gitignore", out["fixed"])
     self.assertIsNone(self.issue(out, "root_gitignore_line"))
 
+  def test_fix_keeps_line_endings_and_unrelated_comments(self):
+    with open(os.path.join(self.p.root, ".gitignore"), "w", newline="") as fh:
+      fh.write("node_modules/\r\n# plugins/conductor docs\r\n/conductor\r\nconductor/\r\ndist/")
+    self.p.run("doctor", "--fix")
+    with open(os.path.join(self.p.root, ".gitignore"), newline="") as fh:
+      self.assertEqual(fh.read(), "node_modules/\r\n# plugins/conductor docs\r\ndist/")
+
   def test_fix_keeps_an_existing_conductor_gitignore(self):
     self.p.write("conductor/.gitignore", "*\n!keep.md\n")
     self.p.write(".gitignore", "/conductor/\n")

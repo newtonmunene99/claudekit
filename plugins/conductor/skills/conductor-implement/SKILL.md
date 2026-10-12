@@ -260,7 +260,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 2.  **Compute next tracks:** Apply **Eligible Tracks Protocol** in templates/conductor-protocol.md **before** prompting. Record eligible `<track_id>` + description list; note **parallel-ready** (∥) when multiple share lowest `order`.
 
 2b. **Finish the branch** (only when the track ran on a feature branch or worktree, per `metadata.json` `git`, and **Commits** is `agent`). **Step 4 runs it**: inside each handler, after the chosen action (the archive steps, or the review) and before that option's Halt or jump to §5.1, so review fixes land on the branch before it merges and the next track branches from the merged base. Skip it for **Delete**, and for **Skip** unless the user asks:
-    1. Run the **Artifact Reference Policy** check over `git diff <base>..HEAD -- . ':!conductor'` and fix any hit first.
+    1. Run the **Artifact Reference Policy** check over `git diff <base>..HEAD -- . ':!conductor' ':!.gitignore'` and fix any hit first.
     2. Use the **User Prompt Protocol**, header "Branch": **Merge into `<base>`** (fast-forward when possible; Recommended when the repo has no PR workflow), **Open a pull request** (when a remote and `gh` or the host CLI exist), **Leave the branch**.
     3. After a merge or PR, offer the follow-ups in **one** prompt (`multiSelect: true`): **Push `<base>`**, **Push git notes** (`git push origin refs/notes/commits`, so the per-task audit trail reaches the remote), **Delete the track branch**, and **Tag a release** only when the repo already tags releases (suggest the next tag from `git tag --sort=-v:refname`).
     4. None of these are covered by standing approval: each listed command is shown and approved in that prompt (**Git Write Policy**).
@@ -303,7 +303,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
     *   **Skip** (standalone): Announce completed track remains in tracks file. Halt.
 
-    *   **Archive, then sort the backlog:** Execute archive steps (4a), commit under the **Git Write Policy**, finish the branch (2b), then run the **Backlog Sorting Protocol**. Its `backlog.md` edits are committed only when **Conductor files** is `committed`. Promoted items continue in `/conductor:conductor-new-track`; otherwise halt after the sorting report.
+    *   **Archive, then sort the backlog:** Execute archive steps (4a, which commits only when **Conductor files** is `committed`), finish the branch (2b), then run the **Backlog Sorting Protocol**. Its `backlog.md` edits are committed only when **Conductor files** is `committed`. Promoted items continue in `/conductor:conductor-new-track`; otherwise halt after the sorting report.
 
     *   **Skip and continue to `<track_id>`:** Announce leaving completed track in registry. Finish the branch (2b). Go to **§5.1 Continue** with that `<track_id>`.
 
