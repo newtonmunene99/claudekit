@@ -24,6 +24,8 @@ export type ConductorPlan = {
   phases: string[]
   // Phases that still hold a todo that is not completed or deferred.
   openPhases: string[]
+  // Each phase's completed-or-deferred count and size, in `phases` order.
+  phaseProgress: { phase: string; done: number; total: number }[]
   blockedReason: string | null
 }
 

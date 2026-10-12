@@ -58,6 +58,11 @@ export function toPlan(raw: Json): ConductorPlan {
     reviewRounds: Number(raw.review_rounds ?? 0),
     phases: (raw.phases ?? []).map(String),
     openPhases: [...new Set(open)],
+    phaseProgress: ((raw.phase_progress ?? []) as Json[]).map(x => ({
+      phase: String(x.phase),
+      done: Number(x.done ?? 0),
+      total: Number(x.total ?? 0),
+    })),
     blockedReason: str(raw.blocked_reason),
   }
 }

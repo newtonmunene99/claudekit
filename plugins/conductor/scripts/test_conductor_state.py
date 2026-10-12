@@ -228,6 +228,14 @@ class PlanPhases(unittest.TestCase):
     out, _ = self.p.run("plan", "conductor/plans/g_abc.plan.md")
     self.assertEqual(out["phases"], ["P1", "P2"])
 
+  def test_phase_progress_counts_each_phases_todos(self):
+    self.p.run("set-todo", "conductor/plans/g_abc.plan.md", "build-sort", "completed")
+    out, _ = self.p.run("plan", "conductor/plans/g_abc.plan.md")
+    self.assertEqual(out["phase_progress"], [
+        {"phase": "P1", "done": 1, "total": 3},
+        {"phase": "P2", "done": 0, "total": 1},
+    ])
+
   def test_a_verify_todo_waits_for_the_rest_of_its_phase(self):
     out, _ = self.p.run("plan", "conductor/plans/g_abc.plan.md")
     self.assertEqual(out["next"]["id"], "build-sort")
