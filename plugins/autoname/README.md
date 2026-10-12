@@ -6,6 +6,29 @@ After a main turn of a session with no name, it asks Haiku for a 2–4 word keba
 
 It never renames a session that already has a name (from `/rename`, or a name Claude Code reports at session start or with a prompt), it skips subagent turns, and it tries once per session.
 
+## Install
+
+```text
+/plugin install autoname --marketplace newtonmunene99/claudekit
+```
+
+On Claude Code older than 2.1.275, add the marketplace first, then install:
+
+```text
+/plugin marketplace add https://github.com/newtonmunene99/claudekit
+/plugin install autoname@claudekit
+```
+
+## Update
+
+```text
+/plugin marketplace update claudekit
+/plugin update autoname@claudekit
+/reload-plugins
+```
+
+From a shell: `claude plugin marketplace update claudekit && claude plugin update autoname@claudekit`, then restart Claude Code.
+
 ## `/autoname [hint]`
 
 Names the session now, whatever its current name, from more of it: up to ten of your prompts (the first five and the latest five), Claude's first and latest replies, and the files edited. Use it when the automatic name missed or the session has moved on. An optional hint steers it: `/autoname protodb`. It also sets the colour when that option is on, and stops the automatic attempt from running later.

@@ -4,6 +4,29 @@ A status line as a mod, the same on every install: no `statusLine` script to set
 
 Needs a Claude Code build with mod support (function hooks).
 
+## Install
+
+```text
+/plugin install statusline --marketplace newtonmunene99/claudekit
+```
+
+On Claude Code older than 2.1.275, add the marketplace first, then install:
+
+```text
+/plugin marketplace add https://github.com/newtonmunene99/claudekit
+/plugin install statusline@claudekit
+```
+
+## Update
+
+```text
+/plugin marketplace update claudekit
+/plugin update statusline@claudekit
+/reload-plugins
+```
+
+From a shell: `claude plugin marketplace update claudekit && claude plugin update statusline@claudekit`, then restart Claude Code.
+
 ## Above the prompt
 
 A row of pills, wrapping when the window is narrow:
