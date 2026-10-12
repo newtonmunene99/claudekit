@@ -989,6 +989,23 @@ def _stale_tracks():
   return out
 
 
+def _unreadable_metadata():
+  """Track metadata.json files that exist but are not a JSON object.
+
+  Doctor and archive skip these so they never crash; this names them so a
+  person can repair them. Missing files are fine: older tracks had none.
+  """
+  bad = []
+  for base in (SPECS_DIR, ARCHIVE_DIR):
+    if not os.path.isdir(base):
+      continue
+    for tid in sorted(os.listdir(base)):
+      path = os.path.join(base, tid, "metadata.json")
+      if os.path.isfile(path) and read_json_object(path) is None:
+        bad.append(path.replace(os.sep, "/"))
+  return sorted(bad)
+
+
 ROOT_CONDUCTOR_LINES = {"conductor", "conductor/", "/conductor", "/conductor/"}
 CONDUCTOR_WORD = re.compile(r"(?<![/\w])conductor(?![/\w])", re.I)
 
@@ -1057,6 +1074,11 @@ def _doctor_issues():
     issues.append({"id": "root_gitignore_line", "fix": "auto",
                    "detail": "root .gitignore has " + ", ".join(f"'{l}'" for l in root_lines)
                    + "; conductor/.gitignore should ignore the folder instead"})
+  unreadable = _unreadable_metadata()
+  if unreadable:
+    issues.append({"id": "bad_metadata", "fix": "skill",
+                   "detail": ", ".join(unreadable) + " (not a JSON object; repair by hand, doctor never rewrites it)",
+                   "files": [{"path": p, "is_tracked": _is_tracked(p)} for p in unreadable]})
   legacy = _legacy_decisions()
   if legacy:
     issues.append({"id": "legacy_decisions", "fix": "skill",
