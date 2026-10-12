@@ -23,9 +23,12 @@ export function resetTime(resetsAt: string | undefined, now: number, isWithDay: 
   return isWithDay ? `${DAYS[at.getDay()]} ${hm}` : hm
 }
 
-export function barCells(percent: number, width = 8): string {
-  const filled = Math.min(width, Math.max(0, Math.round((percent / 100) * width)))
-  return '█'.repeat(filled) + '░'.repeat(width - filled)
+// A thin bar of `width` cells: filled, one marker cell where the fill ends,
+// then the empty track. The marker is always drawn, so 0% still shows a bar.
+export function barSegments(percent: number, width = 8): { filled: number; empty: number } {
+  const room = width - 1
+  const filled = Math.min(room, Math.max(0, Math.round((percent / 100) * room)))
+  return { filled, empty: room - filled }
 }
 
 export function level(percent: number): 'ok' | 'warn' | 'high' {
