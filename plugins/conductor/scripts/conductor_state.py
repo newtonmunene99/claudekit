@@ -782,7 +782,10 @@ def cmd_track_status(args):
       with open(meta_path, "w", encoding="utf-8") as fh:
         fh.write(json.dumps(meta, indent=2) + "\n")
       written = True
-  return {"track_id": track_id, "status": status, "updated_at": now, "metadata": written}, 0
+  out = {"track_id": track_id, "status": status, "updated_at": now, "metadata": written}
+  if written == "unreadable":
+    out["metadata_path"] = meta_path.replace(os.sep, "/")
+  return out, 0
 
 
 # --- doctor ------------------------------------------------------------------
@@ -1082,7 +1085,7 @@ def _doctor_issues():
   unreadable = _unreadable_metadata()
   if unreadable:
     issues.append({"id": "bad_metadata", "fix": "skill",
-                   "detail": ", ".join(unreadable) + " (not a JSON object; repair by hand, doctor never rewrites it)",
+                   "detail": ", ".join(unreadable) + " (unreadable or not a JSON object; repair by hand, doctor never rewrites it)",
                    "files": [{"path": p, "is_tracked": _is_tracked(p)} for p in unreadable]})
   legacy = _legacy_decisions()
   if legacy:
