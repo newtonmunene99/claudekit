@@ -50,11 +50,12 @@ const ICONS: Record<'nerd' | 'plain', Record<Icon, string>> = {
   plain: { limit5h: '', limit7d: '', context: '', reset: '↻', input: '↑', output: '↓', cache: '≋', cost: '$' },
 }
 
-// Boxes have no corner radius, so each pill ends in half-disc glyphs in its
-// own colour. The terminal's are Powerline's (Ghostty bundles them; a font
-// without them shows boxes, hence the square option); other surfaces get
-// plain Unicode half circles.
-const CAPS = { terminal: ['', ''], other: ['◖', '◗'] } as const
+// Boxes have no corner radius, so a terminal pill ends in Powerline half-disc
+// glyphs in its own colour (Ghostty bundles them; a font without them shows
+// boxes, hence the square option). Caps and line-drawing bars need a monospace
+// grid: the desktop draws text in a proportional font, where they come out
+// small, offset and gapped, so other surfaces get square chips with no bar.
+const CAPS = ['', ''] as const
 
 export const identity = atom({ plugin: 'statusline', key: 'identity' } as const, null)
 const title = atom({ plugin: 'statusline', key: 'title' } as const, null)
@@ -164,8 +165,10 @@ export const register: Register = (on, options) => {
     const beneath = await next(e)
     if (pills.length === 0) return beneath
     const { Box, Text } = $.ui.resolve(e)
-    const [left, right] = e.surface === 'terminal' ? CAPS.terminal : CAPS.other
-    const icons = ICONS[e.surface === 'terminal' && !isPlainIcons ? 'nerd' : 'plain']
+    const isTerminal = e.surface === 'terminal'
+    const hasCaps = isRound && isTerminal
+    const [left, right] = CAPS
+    const icons = ICONS[isTerminal && !isPlainIcons ? 'nerd' : 'plain']
     return (
       // No width on this outer box: the engine refuses its own drawing
       // (beneath) under a Box with a width, and would drop the whole band.
@@ -173,8 +176,8 @@ export const register: Register = (on, options) => {
         <Box flexDirection="row" flexWrap="wrap" gap={1} width={e.props.bodyColumns}>
           {pills.map(p => (
             <Box key={p.key} flexDirection="row">
-              {isRound && <Text color={TONE[p.tone]}>{left}</Text>}
-              <Box flexDirection="row" gap={1} paddingX={isRound ? 0 : 1} backgroundColor={TONE[p.tone]}>
+              {hasCaps && <Text color={TONE[p.tone]}>{left}</Text>}
+              <Box flexDirection="row" gap={1} paddingX={hasCaps ? 0 : 1} backgroundColor={TONE[p.tone]}>
                 {p.parts.map((part, i) => {
                   const key = `${p.key}-${i}`
                   const bg = TONE[p.tone]
@@ -187,6 +190,7 @@ export const register: Register = (on, options) => {
                     ) : null
                   }
                   if (part.kind === 'bar') {
+                    if (!isTerminal) return null
                     const { filled, empty } = barSegments(part.percent)
                     return (
                       <Box key={key} flexDirection="row">
@@ -213,7 +217,7 @@ export const register: Register = (on, options) => {
                   )
                 })}
               </Box>
-              {isRound && <Text color={TONE[p.tone]}>{right}</Text>}
+              {hasCaps && <Text color={TONE[p.tone]}>{right}</Text>}
             </Box>
           ))}
         </Box>

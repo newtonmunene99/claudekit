@@ -41,7 +41,9 @@ A row of pills, wrapping when the window is narrow:
 
 Each pill leads with an icon in a deeper shade of its tint: in the terminal, Nerd Font icons (speedometer, calendar, history clock, upload, download, layers, dollar); elsewhere the plain symbols above. Bars are a thin line with a marker where the fill ends, and turn yellow at 70% and red at 90%. A figure with no reading yet is left out. Token totals count every model request of this session's turns and start at 0 when a session is resumed, so they can run below what the cost covers. Another plugin's band (Conductor's track band) stays, under the pills.
 
-Pills have round ends by default. In the terminal those are Powerline glyphs, which Ghostty bundles; with a font that lacks them, set **Pill ends** to `square` and **Icons** to `plain` in the config menu (or `"ends": "square"`, `"icons": "plain"` under `pluginConfigs.statusline` in settings).
+In the desktop app, which draws text in a proportional font, pills are square chips with no bar: caps and line-drawing bars only line up on a terminal's grid.
+
+Terminal pills have round ends by default. Those are Powerline glyphs, which Ghostty bundles; with a font that lacks them, set **Pill ends** to `square` and **Icons** to `plain` in the config menu (or `"ends": "square"`, `"icons": "plain"` under `pluginConfigs.statusline` in settings).
 
 ## Under the prompt
 
