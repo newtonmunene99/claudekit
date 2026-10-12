@@ -990,6 +990,7 @@ def _stale_tracks():
 
 
 ROOT_CONDUCTOR_LINES = {"conductor", "conductor/", "/conductor", "/conductor/"}
+CONDUCTOR_WORD = re.compile(r"(?<![/\w])conductor(?![/\w])", re.I)
 
 
 def _root_conductor_lines():
@@ -1114,15 +1115,19 @@ def _doctor_fix():
     folder_ignore = os.path.join("conductor", ".gitignore")
     if not os.path.isfile(folder_ignore):
       _write(folder_ignore, "*\n")
-    lines = read_text(".gitignore").split("\n")
+    # newline="" keeps CRLF files CRLF, so the upgrade diff is only the removed lines.
+    with open(".gitignore", encoding="utf-8", newline="") as fh:
+      lines = fh.read().splitlines(keepends=True)
     drop = set()
     for i, line in enumerate(lines):
       if line.strip() in ROOT_CONDUCTOR_LINES:
         drop.add(i)
-        # The comment setup wrote above the line goes with it.
-        if i and lines[i - 1].lstrip().startswith("#") and "conductor" in lines[i - 1].lower():
+        # A comment naming Conductor itself goes with it; one naming a path like plugins/conductor stays.
+        if i and lines[i - 1].lstrip().startswith("#") and CONDUCTOR_WORD.search(lines[i - 1]):
           drop.add(i - 1)
-    _write(".gitignore", "\n".join(l for i, l in enumerate(lines) if i not in drop))
+    kept = "".join(l for i, l in enumerate(lines) if i not in drop)
+    with open(".gitignore", "w", encoding="utf-8", newline="") as fh:
+      fh.write(kept)
     fixed.append("moved the conductor/ ignore into conductor/.gitignore")
   if not os.path.isfile(TRACKS_FILE):
     _write(TRACKS_FILE, "# Project Tracks\n\nThis file tracks all major tracks for the project. "

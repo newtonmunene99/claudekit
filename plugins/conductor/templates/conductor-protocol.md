@@ -312,10 +312,10 @@ When starting track implementation (`/conductor:conductor-implement`) or executi
 **Check before every commit, merge, PR, or tag:** search the staged diff and the message, for example:
 
 ```bash
-git diff --cached -- . ':!conductor' | grep -nE 'conductor/|[a-z0-9-]+_20[0-9]{6}\b|\b(ARCH|QW)-[0-9]+\b'
+git diff --cached -- . ':!conductor' ':!.gitignore' | grep -nE 'conductor/|[a-z0-9-]+_20[0-9]{6}\b|\b(ARCH|QW)-[0-9]+\b'
 ```
 
-The pathspec leaves out Conductor's own files, which are allowed to name it; that includes `conductor/.gitignore`, which keeps them local, so the root `.gitignore` needs no exception. On a hit, rewrite the text before committing, and check the commit message the same way. Before a merge, PR, or tag, run the same search over `git diff <base>..HEAD -- . ':!conductor'`, and check public docs and examples against **Product Guidelines** for internal names that should not ship.
+The pathspec leaves out Conductor's own files, which are allowed to name it (`conductor/.gitignore` keeps them local), and the root `.gitignore`, which an upgrade edits when it moves an old `conductor/` line into `conductor/.gitignore`. On a hit, rewrite the text before committing, and check the commit message the same way. Before a merge, PR, or tag, run the same search over `git diff <base>..HEAD -- . ':!conductor' ':!.gitignore'`, and check public docs and examples against **Product Guidelines** for internal names that should not ship.
 
 ## Failure Policy
 

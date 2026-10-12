@@ -69,7 +69,7 @@ It refreshes after each Edit, Write or Bash call and at the end of every turn, r
 ## What's new in 1.7.0
 
 - **Programmes from anywhere:** new-track starts a programme from a request for several tracks, a list of 3+ items, or a grilling session, and carries decisions already made into the specs instead of asking again. A design is approved in one prompt.
-- **No more tracks stuck in progress:** archive records `completed` or `cancelled` in the track's metadata, and `doctor` repairs archived tracks still marked open.
+- **No more tracks stuck in progress:** archive records `completed` or `cancelled` in the track's metadata, and `doctor` repairs archived tracks still marked open (or asks, when the plan can't tell).
 - **Backlog sorting:** when no next track is ready, Track Cleanup offers to sort the backlog (Keep / Promote / Drop, up to 4 items per prompt); status shows the open count.
 - **Local files stay local:** `Keep local` writes `conductor/.gitignore` (`*`) instead of editing your root `.gitignore`; `doctor --fix` moves the old root line.
 
