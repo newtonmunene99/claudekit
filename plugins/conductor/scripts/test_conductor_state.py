@@ -585,8 +585,7 @@ class Doctor(unittest.TestCase):
     self.assertNotIn("do not ignore", self.read(".gitignore"))
     self.assertEqual(self.ids(out), [
         "backlog_duplicates", "no_agent_skills", "no_working_agreements",
-        "root_gitignore_line", "stale_workflow_sections", "unadapted_workflow",
-        "unstamped_version"])
+        "stale_workflow_sections", "unadapted_workflow", "unstamped_version"])
 
   def test_reports_the_old_root_conductor_ignore_line(self):
     for line in ("conductor", "conductor/", "/conductor", "  /conductor/  "):
@@ -601,6 +600,22 @@ class Doctor(unittest.TestCase):
     self.p.write(".gitignore", "docs/conductor/\n# conductor/\n")
     out, _ = self.p.run("doctor")
     self.assertIsNone(self.issue(out, "root_gitignore_line"))
+
+  def test_fix_moves_the_root_ignore_into_the_conductor_folder(self):
+    self.p.write(".gitignore", "node_modules/\n# Conductor artifacts (local only)\nconductor/\n")
+    out, code = self.p.run("doctor", "--fix")
+    self.assertEqual(code, 0, out)
+    self.assertEqual(self.read("conductor/.gitignore"), "*\n")
+    self.assertEqual(self.read(".gitignore"), "node_modules/\n")
+    self.assertIn("moved the conductor/ ignore into conductor/.gitignore", out["fixed"])
+    self.assertIsNone(self.issue(out, "root_gitignore_line"))
+
+  def test_fix_keeps_an_existing_conductor_gitignore(self):
+    self.p.write("conductor/.gitignore", "*\n!keep.md\n")
+    self.p.write(".gitignore", "/conductor/\n")
+    self.p.run("doctor", "--fix")
+    self.assertEqual(self.read("conductor/.gitignore"), "*\n!keep.md\n")
+    self.assertEqual(self.read(".gitignore"), "")
 
   def test_stamp_records_the_plugin_version(self):
     out, _ = self.p.run("doctor", "--stamp")
