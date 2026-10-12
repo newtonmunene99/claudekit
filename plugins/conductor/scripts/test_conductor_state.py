@@ -215,6 +215,12 @@ class ArchiveTrack(unittest.TestCase):
     self.assertEqual(meta["status"], "cancelled")
     self.assertEqual(meta["depends_on"], ["grid_20260101"])
 
+  def test_confirmation_says_which_status_a_forced_archive_would_set(self):
+    out, code = self.p.run("archive", "toolbar_20260102")
+    self.assertEqual((code, out["would_set"]), (3, "cancelled"))
+    out, code = self.p.run("archive", "toolbar_20260102", "--status", "completed")
+    self.assertEqual((code, out["would_set"]), (3, "completed"))
+
   def test_status_flag_overrides(self):
     out, code = self.p.run("archive", "toolbar_20260102", "--force", "--status", "completed")
     self.assertEqual((code, out["status"]), (0, "completed"))

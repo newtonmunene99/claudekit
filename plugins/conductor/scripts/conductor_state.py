@@ -632,7 +632,8 @@ def cmd_archive(args):
   if deferred:
     reasons.append("deferred_checks")
   if reasons and not force:
-    return {"track_id": track_id, "needs_confirmation": reasons, "deferred": deferred}, 3
+    return {"track_id": track_id, "needs_confirmation": reasons, "deferred": deferred,
+            "would_set": final}, 3
 
   os.makedirs(ARCHIVE_DIR, exist_ok=True)
   shutil.move(spec_dir, dest)
