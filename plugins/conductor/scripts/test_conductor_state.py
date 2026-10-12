@@ -570,8 +570,8 @@ class Doctor(unittest.TestCase):
     self.assertFalse(out["clean"])
     self.assertEqual(self.ids(out), [
         "backlog_duplicates", "gitignore_contradiction", "no_agent_skills",
-        "no_working_agreements", "orphaned_plans", "stale_workflow_sections",
-        "unadapted_workflow", "unstamped_version"])
+        "no_working_agreements", "orphaned_plans", "root_gitignore_line",
+        "stale_workflow_sections", "unadapted_workflow", "unstamped_version"])
 
   def test_fix_applies_only_mechanical_repairs(self):
     out, code = self.p.run("doctor", "--fix")
@@ -585,7 +585,22 @@ class Doctor(unittest.TestCase):
     self.assertNotIn("do not ignore", self.read(".gitignore"))
     self.assertEqual(self.ids(out), [
         "backlog_duplicates", "no_agent_skills", "no_working_agreements",
-        "stale_workflow_sections", "unadapted_workflow", "unstamped_version"])
+        "root_gitignore_line", "stale_workflow_sections", "unadapted_workflow",
+        "unstamped_version"])
+
+  def test_reports_the_old_root_conductor_ignore_line(self):
+    for line in ("conductor", "conductor/", "/conductor", "  /conductor/  "):
+      with self.subTest(line=line):
+        self.p.write(".gitignore", f"node_modules/\n{line}\n")
+        out, _ = self.p.run("doctor")
+        issue = self.issue(out, "root_gitignore_line")
+        self.assertEqual(issue["fix"], "auto")
+        self.assertIn(line.strip(), issue["detail"])
+
+  def test_nested_or_commented_conductor_lines_are_not_the_root_ignore(self):
+    self.p.write(".gitignore", "docs/conductor/\n# conductor/\n")
+    out, _ = self.p.run("doctor")
+    self.assertIsNone(self.issue(out, "root_gitignore_line"))
 
   def test_stamp_records_the_plugin_version(self):
     out, _ = self.p.run("doctor", "--stamp")

@@ -989,6 +989,20 @@ def _stale_tracks():
   return out
 
 
+ROOT_CONDUCTOR_LINES = {"conductor", "conductor/", "/conductor", "/conductor/"}
+
+
+def _root_conductor_lines():
+  """Root .gitignore lines that ignore conductor/: the old local-mode setup.
+
+  conductor/.gitignore ignores the folder now; the unanchored root line also
+  hid any nested folder named conductor.
+  """
+  if not os.path.isfile(".gitignore"):
+    return []
+  return [l.strip() for l in read_text(".gitignore").split("\n") if l.strip() in ROOT_CONDUCTOR_LINES]
+
+
 def _doctor_issues():
   issues = []
   plugin_version = _plugin_version()
@@ -1037,6 +1051,11 @@ def _doctor_issues():
   if os.path.isfile(".gitignore") and GITIGNORE_CONTRADICTION in read_text(".gitignore"):
     issues.append({"id": "gitignore_contradiction", "fix": "auto",
                    "detail": ".gitignore says Conductor files must not be ignored"})
+  root_lines = _root_conductor_lines()
+  if root_lines:
+    issues.append({"id": "root_gitignore_line", "fix": "auto",
+                   "detail": "root .gitignore has " + ", ".join(f"'{l}'" for l in root_lines)
+                   + "; conductor/.gitignore should ignore the folder instead"})
   legacy = _legacy_decisions()
   if legacy:
     issues.append({"id": "legacy_decisions", "fix": "skill",
