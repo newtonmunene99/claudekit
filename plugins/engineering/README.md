@@ -4,6 +4,29 @@ Engineering workflow skills for Claude Code, adapted from [mattpocock/skills](ht
 
 Works with **Conductor** for remediation programmes; OKF knowledge lives **in the repo**, not only under `conductor/`.
 
+## Install
+
+```text
+/plugin install engineering --marketplace newtonmunene99/claudekit
+```
+
+On Claude Code older than 2.1.275, add the marketplace first, then install:
+
+```text
+/plugin marketplace add https://github.com/newtonmunene99/claudekit
+/plugin install engineering@claudekit
+```
+
+## Update
+
+```text
+/plugin marketplace update claudekit
+/plugin update engineering@claudekit
+/reload-plugins
+```
+
+From a shell: `claude plugin marketplace update claudekit && claude plugin update engineering@claudekit`, then restart Claude Code.
+
 ## Commands
 
 | Command | Description |

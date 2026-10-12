@@ -23,6 +23,24 @@ Then install the plugins you want:
 /plugin install autoname@claudekit
 ```
 
+On Claude Code 2.1.275 or later, one step does both, per plugin:
+
+```text
+/plugin install conductor --marketplace newtonmunene99/claudekit
+```
+
+### Update
+
+Refresh the marketplace, update the plugins you use, then reload:
+
+```text
+/plugin marketplace update claudekit
+/plugin update conductor@claudekit
+/reload-plugins
+```
+
+From a shell: `claude plugin marketplace update claudekit && claude plugin update conductor@claudekit`, then restart Claude Code. Each plugin's README lists its own lines.
+
 ### Local development
 
 ```bash

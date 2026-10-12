@@ -4,6 +4,29 @@ Context-driven development for Claude Code: setup, spec, plan, implement, review
 
 **Measure twice, code once.**
 
+## Install
+
+```text
+/plugin install conductor --marketplace newtonmunene99/claudekit
+```
+
+On Claude Code older than 2.1.275, add the marketplace first, then install:
+
+```text
+/plugin marketplace add https://github.com/newtonmunene99/claudekit
+/plugin install conductor@claudekit
+```
+
+## Update
+
+```text
+/plugin marketplace update claudekit
+/plugin update conductor@claudekit
+/reload-plugins
+```
+
+From a shell: `claude plugin marketplace update claudekit && claude plugin update conductor@claudekit`, then restart Claude Code.
+
 ## Commands
 
 | Command | Description |
