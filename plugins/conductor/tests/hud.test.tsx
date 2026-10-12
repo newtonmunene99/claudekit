@@ -34,6 +34,10 @@ const planJson = (over: Record<string, unknown> = {}) => ({
   parallel_batch: [],
   review_rounds: 0,
   phases: ['P1', 'P2'],
+  phase_progress: [
+    { phase: 'P1', done: 7, total: 7 },
+    { phase: 'P2', done: 0, total: 5 },
+  ],
   blocked_reason: null,
   ...over,
 })
@@ -77,6 +81,10 @@ describe('snapshot', () => {
     expect(s.trackId).toBe('track-a')
     expect(s.plan?.done).toBe(7)
     expect(s.plan?.openPhases).toEqual(['P2'])
+    expect(s.plan?.phaseProgress).toEqual([
+      { phase: 'P1', done: 7, total: 7 },
+      { phase: 'P2', done: 0, total: 5 },
+    ])
     expect(statusText(s)).toBe('track-a 7/12')
   })
 
@@ -261,7 +269,11 @@ describe('hud', () => {
       props: { title: 'Conductor', isFocused: false, bodyColumns: 80, placement: 'dock' } as never,
     })
     expect(await board.find({ type: 'Text', text: /Also in progress \(1\)/ })).toBeDefined()
-    expect(await board.find({ type: 'Text', text: /track-a 7\/12/ })).toBeDefined()
+    expect(await board.find({ type: 'Text', text: /^ *track-a$/ })).toBeDefined()
+    expect(await board.find({ type: 'Text', text: '7/12' })).toBeDefined()
+    // Each phase gets a heading row with its own bar.
+    expect(await board.find({ type: 'Text', text: /Phases/ })).toBeDefined()
+    expect(await board.find({ type: 'Text', text: /^7\/7 ✓$/ })).toBeDefined()
     expect(await board.find({ key: 'implement-track-a' })).toBeDefined()
     await board.unmount()
   })

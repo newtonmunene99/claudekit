@@ -28,6 +28,24 @@ const ACCENT = '#7a5cc4'
 const TRACK = '#b5b5b5'
 const LEVEL = { ok: '#5a9a68' } as const
 
+// Section headings of the board: an icon and a colour each.
+const HEAD = {
+  next: { icon: '▸', color: ACCENT },
+  phases: { icon: '◔', color: '#5a9a68' },
+  waiting: { icon: '◷', color: '#4a6fb5' },
+  person: { icon: '!', color: '#c8553d' },
+  others: { icon: '◆', color: ACCENT },
+  tracks: { icon: '≡', color: '#8a8a8a' },
+} as const
+
+const BAR_WIDTH = 10
+
+// Filled and empty cells of a done/total bar.
+function barCells(done: number, total: number): [string, string] {
+  const filled = total ? Math.round((done / total) * BAR_WIDTH) : 0
+  return ['█'.repeat(filled), '░'.repeat(BAR_WIDTH - filled)]
+}
+
 // Boxes have no corner radius, so chips end in half-disc glyphs in their own
 // colour. The terminal's are Powerline's (Ghostty bundles them; the `ends`
 // option squares them for fonts without); a desktop gets Unicode half circles
@@ -226,8 +244,7 @@ export const register: Register = (on, options) => {
     const beneath = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const p = s.plan
-    const width = 10
-    const filled = p.total ? Math.round((p.done / p.total) * width) : 0
+    const [full, empty] = barCells(p.done, p.total)
     const phase = p.next?.phase ?? p.openPhases[0] ?? null
     const phaseAt = phase ? p.phases.indexOf(phase) : -1
     const flags: { key: string; tone: string; text: string }[] = []
@@ -272,8 +289,8 @@ export const register: Register = (on, options) => {
             ])}
             {chip('progress', TONE.grey, [
               <Text key="bar" color={LEVEL.ok} backgroundColor={TONE.grey}>
-                {'█'.repeat(filled)}
-                <Text color={TRACK}>{'░'.repeat(width - filled)}</Text>
+                {full}
+                <Text color={TRACK}>{empty}</Text>
               </Text>,
               <Text key="count" color={INK} backgroundColor={TONE.grey} bold>{`${p.done}/${p.total}`}</Text>,
               ...(phaseAt >= 0
@@ -311,7 +328,20 @@ export const register: Register = (on, options) => {
     }
     const p = s.plan
     const room = Math.max(3, Math.floor(((e.viewport?.rows ?? 30) - 16) / 3))
-    const header = (title: string) => <Text bold>{title}</Text>
+    const header = (kind: keyof typeof HEAD, title: string) => (
+      <Text bold color={HEAD[kind].color}>
+        {HEAD[kind].icon} {title}
+      </Text>
+    )
+    const bar = (done: number, total: number) => {
+      const [full, empty] = barCells(done, total)
+      return (
+        <Text>
+          <Text color={LEVEL.ok}>{full}</Text>
+          <Text color={TRACK}>{empty}</Text>
+        </Text>
+      )
+    }
     const row = (text: string, dim = false) => (
       <Text dimColor={dim} wrap="truncate-end">
         {'  '}
@@ -323,36 +353,60 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column" gap={1} width={e.props.bodyColumns}>
         <Box flexDirection="column">
-          <Text bold color="cyan">
-            {s.trackId ?? 'No track'} {s.isInProgress ? '(in progress)' : s.trackId ? '(next up)' : ''}
-          </Text>
+          <Box flexDirection="row" gap={1}>
+            <Text bold color={ACCENT}>{s.trackId ?? 'No track'}</Text>
+            {s.trackId && (
+              <Text color={s.isInProgress ? LEVEL.ok : TRACK}>{s.isInProgress ? '● in progress' : '○ next up'}</Text>
+            )}
+          </Box>
           {s.description && <Text wrap="wrap">{s.description}</Text>}
           {p && (
-            <Text>
-              {p.done}/{p.total} todos · phases {p.phases.join(', ') || 'none'}
-              {p.reviewRounds ? ` · review round ${p.reviewRounds}/2` : ''}
-            </Text>
+            <Box flexDirection="row" gap={1}>
+              {bar(p.done, p.total)}
+              <Text bold>{`${p.done}/${p.total}`}</Text>
+              <Text dimColor>
+                todos{p.reviewRounds ? ` · review round ${p.reviewRounds}/2` : ''}
+              </Text>
+            </Box>
           )}
         </Box>
 
         {p && (
           <Box flexDirection="column">
-            {header('Next')}
+            {header('next', 'Next')}
             {row(p.next ? `${p.next.id}: ${p.next.content}` : (p.blockedReason ?? 'nothing ready'))}
             {p.parallelBatch.length > 0 && row(`parallel batch: ${p.parallelBatch.join(', ')}`, true)}
           </Box>
         )}
 
+        {p && p.phaseProgress.some(x => x.total > 0) && (
+          <Box flexDirection="column">
+            {header('phases', 'Phases')}
+            {p.phaseProgress
+              .filter(x => x.total > 0)
+              .map(x => (
+                <Box key={`phase-${x.phase}`} flexDirection="row" gap={1}>
+                  <Text wrap="truncate-end">{'  '}{x.phase}</Text>
+                  {bar(x.done, x.total)}
+                  <Text dimColor={x.done === x.total}>
+                    {x.done}/{x.total}
+                    {x.done === x.total ? ' ✓' : ''}
+                  </Text>
+                </Box>
+              ))}
+          </Box>
+        )}
+
         {p && p.waiting.length > 0 && (
           <Box flexDirection="column">
-            {header(`Waiting (${p.waiting.length})`)}
+            {header('waiting', `Waiting (${p.waiting.length})`)}
             {p.waiting.slice(0, room).map(t => row(`${t.id} ← ${t.blockedBy.join(', ')}`, true))}
           </Box>
         )}
 
         {p && (p.blocked.length > 0 || p.deferred.length > 0) && (
           <Box flexDirection="column">
-            {header('Needs a person')}
+            {header('person', 'Needs a person')}
             {p.blocked.slice(0, room).map(t => row(`blocked ${t.id}${t.on ? `: ${t.on}` : ''}`))}
             {p.deferred.slice(0, room).map(t => row(`deferred check ${t.id}${t.phase ? ` (phase ${t.phase})` : ''}`))}
           </Box>
@@ -360,14 +414,16 @@ export const register: Register = (on, options) => {
 
         {s.others.length > 0 && (
           <Box flexDirection="column">
-            {header(`Also in progress (${s.others.length})`)}
+            {header('others', `Also in progress (${s.others.length})`)}
             {s.others.slice(0, room).map(t => (
               <Box key={t.trackId} flexDirection="column">
                 <Box flexDirection="row" gap={1}>
-                  <Text color="cyan" wrap="truncate-end">
+                  <Text color={ACCENT} wrap="truncate-end">
                     {'  '}
-                    {t.trackId} {t.total ? `${t.done}/${t.total}` : ''}
+                    {t.trackId}
                   </Text>
+                  {t.total > 0 && bar(t.done, t.total)}
+                  {t.total > 0 && <Text dimColor>{`${t.done}/${t.total}`}</Text>}
                   <Box flexGrow={1} />
                   <Button
                     key={`implement-${t.trackId}`}
@@ -382,7 +438,7 @@ export const register: Register = (on, options) => {
         )}
 
         <Box flexDirection="column">
-          {header('Tracks')}
+          {header('tracks', 'Tracks')}
           {row(`eligible: ${s.eligible.join(', ') || 'none'}`)}
           {s.blockedTracks.slice(0, room).map(t => row(`blocked ${t.id} ← ${t.missing.join(', ')}`, true))}
           {s.archivable.length > 0 && row(`archivable: ${s.archivable.join(', ')}`, true)}

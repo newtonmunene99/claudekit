@@ -358,6 +358,12 @@ def cmd_plan(args):
       "parallel_batch": batch if len(batch) > 1 else [],
       "review_rounds": fm.get("review_rounds", 0),
       "phases": phases,
+      # Phases named only in the body's Phases section hold no todos: 0/0.
+      "phase_progress": [
+          {"phase": p,
+           "done": sum(1 for t in todos if str(t.get("phase")) == p and t.get("status") in TERMINAL),
+           "total": sum(1 for t in todos if str(t.get("phase")) == p)}
+          for p in phases],
       "sync_bookends_ok": bool(ordered_ids)
       and ordered_ids[0] == "conductor-sync-in-progress"
       and ordered_ids[-1] == "conductor-sync-complete",
