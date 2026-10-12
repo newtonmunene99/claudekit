@@ -69,7 +69,7 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 **PROTOCOL: Follow this sequence to provide a status overview.**
 
 ### 2.1 Read Project Plan
-1.  **Run the scripts** per **Parsing Conductor Plans** above (`tracks`, then `plan` for each incomplete or archivable track, then `doctor`). Both handle the standard `- [ ] **Track:` and legacy `## [ ] Track:` formats.
+1.  **Run the scripts** per **Parsing Conductor Plans** above (`tracks`, then `plan` for each incomplete or archivable track, then `doctor`, then `backlog`). Both handle the standard `- [ ] **Track:` and legacy `## [ ] Track:` formats.
 2.  **Fallback only:** if the script errors, resolve the **Tracks Registry** and each **Conductor plan file** via the **Universal File Resolution Protocol** and count todo `status` values by hand.
 
 ### 2.2 Parse and Summarize Plan
