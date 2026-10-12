@@ -246,6 +246,37 @@ def cmd_tracks(_args):
 
 # --- plan --------------------------------------------------------------------
 
+def is_verify(todo):
+  """A phase's hand check: by id convention or by its content."""
+  return str(todo["id"]).startswith("verify-") or bool(
+      re.search(r"manual verification", str(todo.get("content", "")), re.I))
+
+
+SYNC_IDS = {"conductor-sync-in-progress", "conductor-sync-complete"}
+
+
+def _plan_todos(plan):
+  """The plan's todos, or [] when the plan is missing or has no frontmatter."""
+  if not plan or not os.path.isfile(plan):
+    return []
+  fm_text, _ = split_frontmatter(read_text(plan))
+  todos = (parse_frontmatter(fm_text).get("todos") or []) if fm_text else []
+  return [t for t in todos if isinstance(t, dict) and t.get("id")]
+
+
+def _work_todos(todos):
+  # Hand checks and the sync bookends say nothing about whether the work
+  # shipped: a track archived with only those open is done.
+  return [t for t in todos if not is_verify(t) and t["id"] not in SYNC_IDS]
+
+
+def _status_from_todos(todos, registry_completed):
+  work = _work_todos(todos)
+  if work:
+    return "completed" if all(t.get("status") in TERMINAL for t in work) else "cancelled"
+  return "completed" if registry_completed else "cancelled"
+
+
 def cmd_plan(args):
   if not args:
     return {"error": "usage: conductor_state.py plan <plan.md>"}, 1
@@ -266,10 +297,6 @@ def cmd_plan(args):
 
   # Sync bookends never run in parallel and must keep their frontmatter position.
   sync_ids = {"conductor-sync-in-progress", "conductor-sync-complete"}
-
-  def is_verify(todo):
-    return str(todo["id"]).startswith("verify-") or bool(
-        re.search(r"manual verification", str(todo.get("content", "")), re.I))
 
   ready, waiting, blocked_ext = [], [], []
   for t in todos:
@@ -573,10 +600,14 @@ def _archive_registry_entry(text, track_id):
 
 
 def cmd_archive(args):
+  status, args = _flag(list(args), "--status")
   ids = [a for a in args if not a.startswith("--")]
   force = "--force" in args
+  usage = "usage: conductor_state.py archive <track_id> [--force] [--status completed|cancelled]"
   if len(ids) != 1:
-    return {"error": "usage: conductor_state.py archive <track_id> [--force]"}, 1
+    return {"error": usage}, 1
+  if status is not None and status not in ("completed", "cancelled"):
+    return {"error": f"--status must be completed or cancelled; {usage}"}, 1
   track_id = ids[0]
   if not os.path.isfile(TRACKS_FILE):
     return {"error": f"{TRACKS_FILE} not found; run /conductor:conductor-setup"}, 1
@@ -590,11 +621,10 @@ def cmd_archive(args):
   text = read_text(TRACKS_FILE)
   track = next((t for t in parse_registry(text) if t["track_id"] == track_id), None)
   plan = (track or {}).get("plan") or _plan_from_index(spec_dir)
-  deferred = []
-  if plan and os.path.isfile(plan):
-    fm_text, _ = split_frontmatter(read_text(plan))
-    todos = (parse_frontmatter(fm_text).get("todos") or []) if fm_text else []
-    deferred = [t["id"] for t in todos if isinstance(t, dict) and t.get("status") == "deferred"]
+  todos = _plan_todos(plan)
+  deferred = [t["id"] for t in todos if t.get("status") == "deferred"]
+  # Decided before anything moves, so the confirmation and the write agree.
+  final = status or _status_from_todos(todos, track is not None and track["status"] == "completed")
 
   reasons = []
   if track is None or track["status"] != "completed":
@@ -617,6 +647,15 @@ def cmd_archive(args):
       with open(index, "w", encoding="utf-8") as fh:
         fh.write(updated)
 
+  written = None
+  meta_path = os.path.join(dest, "metadata.json")
+  if os.path.isfile(meta_path):
+    meta = json.loads(read_text(meta_path) or "{}")
+    meta["status"] = final
+    meta["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    _write(meta_path, json.dumps(meta, indent=2) + "\n")
+    written = final
+
   new_text, rewritten = _archive_registry_entry(text, track_id)
   if rewritten:
     with open(TRACKS_FILE, "w", encoding="utf-8") as fh:
@@ -627,6 +666,7 @@ def cmd_archive(args):
       "registry": "ledger" if rewritten else "entry-not-found",
       "forced": bool(reasons),
       "deferred": deferred,
+      "status": written,
   }, 0
 
 
