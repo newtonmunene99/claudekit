@@ -603,6 +603,22 @@ class Doctor(unittest.TestCase):
     self.assertEqual(sorted((t["track_id"], t["suggested"]) for t in issue["tracks"]), [
         ("bare_20260103", None), ("old_20260101", "cancelled"), ("shipped_20260102", "completed")])
 
+  def test_fix_repairs_archived_tracks_with_evidence_after_moving_their_plans(self):
+    self.p.write("conductor/archive/old_20260101/metadata.json",
+                 '{"status": "in_progress", "programme_id": "p"}')
+    # Left behind by an old archive: --fix moves it in before judging the track.
+    self.plan("conductor/plans/old_a1.plan.md", [("build", "completed"), ("verify-p1", "pending")])
+    self.p.write("conductor/archive/old_20260101/index.md", "- [Plan](../../plans/old_a1.plan.md)\n")
+    self.p.write("conductor/archive/bare_20260103/metadata.json", '{"status": "new"}')
+    out, code = self.p.run("doctor", "--fix")
+    self.assertEqual(code, 0, out)
+    meta = json.loads(self.read("conductor/archive/old_20260101/metadata.json"))
+    self.assertEqual((meta["status"], meta["programme_id"]), ("completed", "p"))
+    self.assertIn("stale_track_status: old_20260101 -> completed", out["fixed"])
+    self.assertEqual(json.loads(self.read("conductor/archive/bare_20260103/metadata.json"))["status"], "new")
+    left = self.issue(out, "stale_track_status")
+    self.assertEqual([t["track_id"] for t in left["tracks"]], ["bare_20260103"])
+
   def test_reports_open_tracks_whose_work_is_all_done(self):
     self.p.write("conductor/context/tracks.md", """
         # Tracks
