@@ -24,6 +24,12 @@ const TONE: Record<Tone, string> = {
 const LEVEL = { ok: '#5a9a68', warn: '#c9a227', high: '#c8553d' } as const
 const INK = '#2b2b2b'
 
+// Boxes have no corner radius, so each pill ends in half-disc glyphs in its
+// own colour. The terminal's are Powerline's (Ghostty bundles them; a font
+// without them shows boxes, hence the square option); other surfaces get
+// plain Unicode half circles.
+const CAPS = { terminal: ['', ''], other: ['◖', '◗'] } as const
+
 export const identity = atom({ plugin: 'statusline', key: 'identity' } as const, null)
 const title = atom({ plugin: 'statusline', key: 'title' } as const, null)
 
@@ -72,7 +78,9 @@ function redraw($: EngineInterface): void {
   $.ui.invalidate('ui.render')
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const isRound = options.ends !== 'square'
+
   // A passed reset time drops off with the clock, not with an event.
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -129,24 +137,29 @@ export const register: Register = on => {
     const beneath = await next(e)
     if (pills.length === 0) return beneath
     const { Box, Text } = $.ui.resolve(e)
+    const [left, right] = e.surface === 'terminal' ? CAPS.terminal : CAPS.other
     return (
       // No width on this outer box: the engine refuses its own drawing
       // (beneath) under a Box with a width, and would drop the whole band.
       <Box flexDirection="column">
         <Box flexDirection="row" flexWrap="wrap" gap={1} width={e.props.bodyColumns}>
           {pills.map(p => (
-            <Box key={p.key} flexDirection="row" gap={1} paddingX={1} backgroundColor={TONE[p.tone]}>
-              {p.parts.map((part, i) => (
-                <Text
-                  key={`${p.key}-${i}`}
-                  color={part.level ? LEVEL[part.level] : INK}
-                  backgroundColor={TONE[p.tone]}
-                  bold={part.isBold}
-                  dimColor={part.isDim}
-                >
-                  {part.text}
-                </Text>
-              ))}
+            <Box key={p.key} flexDirection="row">
+              {isRound && <Text color={TONE[p.tone]}>{left}</Text>}
+              <Box flexDirection="row" gap={1} paddingX={isRound ? 0 : 1} backgroundColor={TONE[p.tone]}>
+                {p.parts.map((part, i) => (
+                  <Text
+                    key={`${p.key}-${i}`}
+                    color={part.level ? LEVEL[part.level] : INK}
+                    backgroundColor={TONE[p.tone]}
+                    bold={part.isBold}
+                    dimColor={part.isDim}
+                  >
+                    {part.text}
+                  </Text>
+                ))}
+              </Box>
+              {isRound && <Text color={TONE[p.tone]}>{right}</Text>}
             </Box>
           ))}
         </Box>
