@@ -39,10 +39,10 @@ For each selected track:
 
 1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/conductor_state.py" archive <track_id>`.
 2. **Exit 3 (`needs_confirmation`):**
-   - `not_completed`: the track is not `[x]`. Ask once via the **User Prompt Protocol**: "Track '<description>' is not complete. Archive it anyway?" Options: **Keep it** (Recommended), **Archive anyway**.
-   - `deferred_checks`: hand checks were postponed (`deferred` lists them). Ask: "'<description>' has unverified checks: <ids>. Archive anyway?" Options: **Run the checks first** (Recommended: list the steps from the plan's **Deferred check** sections), **Archive anyway**.
+   - `not_completed`: the track is not `[x]`. Ask once via the **User Prompt Protocol**: "Track '<description>' is not complete. Archive it anyway?" Options: **Keep it** (Recommended), **Archive anyway (marks it <would_set>)**, using the output's `would_set`. When the user says the opposite status fits, rerun with `--force --status <completed|cancelled>`.
+   - `deferred_checks`: hand checks were postponed (`deferred` lists them). Ask: "'<description>' has unverified checks: <ids>. Archive anyway?" Options: **Run the checks first** (Recommended: list the steps from the plan's **Deferred check** sections), **Archive anyway (marks it <would_set>)**.
    - On **Archive anyway**, rerun with `--force`.
-3. **Exit 0:** the spec folder and the plan now live in `conductor/archive/<track_id>/`, and the registry entry became `- [x] **Track: …** (archived)` linking to the archived spec. That ledger line keeps later tracks' `depends_on` satisfied; do not delete it.
+3. **Exit 0:** the spec folder and the plan now live in `conductor/archive/<track_id>/`, its `metadata.json` carries the final `status` (output `status`; `null` when the track had no metadata), and the registry entry became `- [x] **Track: …** (archived)` linking to the archived spec. That ledger line keeps later tracks' `depends_on` satisfied; do not delete it.
 4. **Other failures:** report the error line and continue with the next track (**Failure Policy → Isolate**).
 
 ## 4.0 COMMIT
