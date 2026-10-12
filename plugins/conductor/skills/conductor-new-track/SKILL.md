@@ -110,26 +110,31 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 After loading the track description, check for **programme mode**:
 
-| Signal | Action |
-| ------ | ------ |
-| User references `conductor/reviews/*.md` | Enter programme mode |
-| Paste includes numbered findings (§3.x, ARCH-N, Addendum) | Enter programme mode |
-| Description mentions "remediation", "review findings", or lists ≥6 distinct items | Enter programme mode |
-| Otherwise | Continue single-track flow (§2.2) |
+| Signal | Source | Action |
+| ------ | ------ | ------ |
+| User references `conductor/reviews/*.md` | review document | Enter programme mode |
+| Paste includes numbered findings (§3.x, ARCH-N, Addendum) | review document | Enter programme mode |
+| Description mentions "remediation" or "review findings" | review document | Enter programme mode |
+| User asks for a programme or several tracks ("programme", "several tracks", "N tracks") | request or list | Enter programme mode |
+| Description or conversation lists 3+ distinct items | request or list | Enter programme mode |
+| This conversation holds grilling or design-review output (`engineering:grilling`, `grill-with-docs`, `improve-codebase-architecture`, or a handoff's settled list) | grilling | Enter programme mode |
+| Otherwise | none | Continue single-track flow (§2.2) |
 
 **Programme mode protocol:**
+
+Steps 1 and 2 apply only when the source is a review document. For any other source, skip both and say so in one line: "Programme from <source>; no review to validate."
 
 1. Resolve and read the review document via **Reviews Directory** (Universal File Resolution).
 2. Check for validation addendum (`<review-stem>_validation.md`) or validation section. If missing, announce: "Run `/conductor:conductor-validate-review` first" and use the **User Prompt Protocol** — opt out only if user explicitly accepts unvalidated programme.
 3. Load `templates/programme-planning-guide.md` from **Plugin Template Path**.
-4. Count findings and classify axes (trust, lifecycle, registry, docs, architecture).
+4. Count the findings or items and classify axes (trust, lifecycle, registry, docs, architecture).
 5. **Split vs monolith** — **User Prompt Protocol**:
    - **header:** "Programme split"
    - **type:** choice
-   - **options:** Split into N tracks (recommended when ≥6 findings or ≥3 axes) | Single monolith track | Custom split (user describes)
+   - **options:** Split into N tracks (recommended when 3+ items or 2+ axes) | Single monolith track | Custom split (user describes)
 6. If ARCH-N findings block future refactors, include a **decision track** (see §2.5b).
 7. Optional: suggest `/engineering:improve-codebase-architecture` (engineering plugin) for architecture deepening before split.
-8. Skip §2.2–2.4 single-track loops; use **§2.3p Programme specs**, **§2.4p Programme plans**, **§2.4b Programme synthesis**, then **§2.5p Programme artifacts**.
+8. Run **§2.1c Settled decisions**, then skip §2.2–2.4 single-track loops; use **§2.3p Programme specs**, **§2.4p Programme plans**, **§2.4b Programme synthesis**, then **§2.5p Programme artifacts**.
 
 ### 2.2 Brainstorm and Design
 
