@@ -268,24 +268,24 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
 
 3.  **Ask for User Choice:** Build options dynamically, then use the **User Prompt Protocol** (do not repeat in chat):
 
-    **Always include:**
+    **Options** (each label and what it does):
     - **Review** — Run `/conductor:conductor-review` before finalizing.
     - **Archive** — Move the spec and plan to `conductor/archive/<track_id>/`; the registry keeps a one-line `(archived)` entry.
     - **Delete** — Permanently delete track folder and registry entry.
     - **Skip** — Leave completed track in tracks file; stop for now.
+    - `Archive and continue to <track_id>` — Description: archive the completed track, then implement `<track_description>` (+ `(∥)` when parallel-ready).
+    - `Skip and continue to <track_id>` — Description: leave the completed track in the registry, then implement `<track_description>`.
+    - `Choose next track…` — Pick among all eligible tracks (follow-up **User Prompt Protocol**).
+    - `Archive, then sort the backlog (<N> open)` — Archive the completed track, then run the **Backlog Sorting Protocol** in templates/conductor-protocol.md (`<N>` = the `open` count from `conductor_state.py backlog`). Promoting happens inside sorting.
+    - `Hand off to a new session` — offered when the session is long (a context compaction happened, or this track had more than ~20 todos): follow `/conductor:conductor-handoff`.
 
-    **When eligible next tracks exist**, append combined options (user must explicitly choose — never auto-continue):
-    - For each eligible track (cap at **2** in this prompt; if more than 2 eligible, include only the two lowest-`order` tracks here):
-        - Label: `Skip and continue to <track_id>`, Description: `<track_description>` + `(∥)` when parallel-ready. Leave completed track in registry; start implementing next track.
-        - Label: `Archive and continue to <track_id>`, Description: Archive completed track, then implement `<track_description>`.
-    - If **>2 eligible** tracks, also add:
-        - Label: `Choose next track…`, Description: Pick among all eligible tracks (follow-up **User Prompt Protocol**).
+    **The prompt holds at most 4 options**, chosen by case. An option left out stays reachable: the user can type it as the free-text answer. Continue options are never auto-chosen.
 
-    Put the **recommended** next track (lowest `order`) first among continue options.
-
-    **When no eligible next track exists**, run `conductor_state.py backlog` and, if it has `open` items, append up to 2 options: `Archive and promote <item title>` (archive, then run `/conductor:conductor-new-track backlog:<slug>`).
-
-    **Also offer** `Hand off to a new session` when the session is long (a context compaction happened, or this track had more than ~20 todos): follow `/conductor:conductor-handoff`.
+    | Case | Options, in order |
+    | ---- | ----------------- |
+    | Eligible next tracks exist | `Archive and continue to <id>` (Recommended; `<id>` = the lowest-`order` eligible track), `Skip and continue to <id>`, **Review**, then `Choose next track…` when 2+ tracks are eligible, else **Hand off** when offered, else **Archive** |
+    | No eligible track; the backlog has open items | `Archive, then sort the backlog (<N> open)` (Recommended), **Review**, **Skip**, **Delete** (**Hand off**, when offered, takes Delete's slot) |
+    | No eligible track; no open backlog items | **Archive** (Recommended), **Review**, **Skip**, **Delete** (**Hand off**, when offered, takes Delete's slot) |
 
     - **questions:**
         - **header:** "Track Cleanup"
@@ -302,6 +302,8 @@ CRITICAL: Validate the result of every tool call. On failure, classify it with t
     *   **Delete** (standalone): Confirm via the **User Prompt Protocol** `yesno`, then delete steps (4b). Halt unless cancelled.
 
     *   **Skip** (standalone): Announce completed track remains in tracks file. Halt.
+
+    *   **Archive, then sort the backlog:** Execute archive steps (4a), commit under the **Git Write Policy**, finish the branch (2b), then run the **Backlog Sorting Protocol**. Its `backlog.md` edits are committed only when **Conductor files** is `committed`. Promoted items continue in `/conductor:conductor-new-track`; otherwise halt after the sorting report.
 
     *   **Skip and continue to `<track_id>`:** Announce leaving completed track in registry. Finish the branch (2b). Go to **§5.1 Continue** with that `<track_id>`.
 
