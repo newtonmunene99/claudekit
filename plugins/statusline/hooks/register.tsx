@@ -199,7 +199,7 @@ export const register: Register = (on, options) => {
                             {'━'.repeat(filled)}
                           </Text>
                         )}
-                        <Text color={INK} backgroundColor={bg} bold>
+                        <Text color={INK} backgroundColor={bg} weight="semibold">
                           ┃
                         </Text>
                         {empty > 0 && (
@@ -211,7 +211,7 @@ export const register: Register = (on, options) => {
                     )
                   }
                   return (
-                    <Text key={key} color={INK} backgroundColor={bg} bold={part.isBold} dimColor={part.isDim}>
+                    <Text key={key} color={INK} backgroundColor={bg} weight={part.isBold ? 'semibold' : undefined} dimColor={part.isDim}>
                       {part.text}
                     </Text>
                   )

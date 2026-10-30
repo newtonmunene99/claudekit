@@ -1,6 +1,7 @@
-// Pure mapping from conductor_state.py's JSON to the HUD's snapshot, and the
-// milestones worth a toast between two snapshots. No `$` here, so tests can
-// feed it recorded script output.
+// Pure mapping from conductor_state.py's JSON to the HUD's snapshot, the
+// milestones worth a transcript row between two snapshots, and the track ids
+// the prompt's typeahead offers. No `$` here, so tests can feed it recorded
+// script output.
 
 import type { ConductorPlan, ConductorSnapshot, ConductorTodo } from '../types'
 
@@ -13,7 +14,14 @@ const todo = (raw: Json): ConductorTodo => ({
   id: String(raw.id),
   content: String(raw.content ?? ''),
   phase: str(raw.phase),
+  attempts: Number(raw.attempts ?? 0),
 })
+
+// The Convergence Budgets cap: at this many attempts a todo escalates.
+const ATTEMPT_CAP = 3
+
+// Mirrors conductor_state.py's is_verify by id, which is how plans name them.
+const isVerify = (id: string) => id.startsWith('verify-')
 
 // The track the HUD follows: of the tracks in progress, the one whose plan
 // changed last (each todo update rewrites it), so starting a second track moves
@@ -108,14 +116,17 @@ export function toSnapshot(
   }
 }
 
+// isForYou: the work waits on the person, so they get a notification too.
+export type Milestone = { text: string; isForYou: boolean }
+
 // What changed between two refreshes that the person would otherwise only
 // find in scrollback.
-export function milestones(prev: ConductorSnapshot | null, next: ConductorSnapshot): string[] {
+export function milestones(prev: ConductorSnapshot | null, next: ConductorSnapshot): Milestone[] {
   if (!prev) return []
-  const out: string[] = []
+  const out: Milestone[] = []
 
   if (prev.isInProgress && prev.trackId && next.archivable.includes(prev.trackId)) {
-    out.push(`Conductor: track ${prev.trackId} complete`)
+    out.push({ text: `track ${prev.trackId} complete`, isForYou: true })
   }
 
   const a = prev.plan
@@ -124,17 +135,53 @@ export function milestones(prev: ConductorSnapshot | null, next: ConductorSnapsh
 
   for (const phase of a.openPhases) {
     if (!b.openPhases.includes(phase) && b.phases.includes(phase)) {
-      out.push(`Conductor: phase ${phase} done`)
+      out.push({ text: `phase ${phase} done`, isForYou: false })
     }
+  }
+  if (b.next && isVerify(b.next.id) && b.next.id !== a.next?.id) {
+    out.push({ text: `${b.next.id} is ready for your hand check`, isForYou: true })
   }
   const wasBlocked = new Set(a.blocked.map(t => t.id))
   for (const t of b.blocked) {
-    if (!wasBlocked.has(t.id)) out.push(`Conductor: ${t.id} blocked${t.on ? ` on ${t.on}` : ''}`)
+    if (!wasBlocked.has(t.id)) out.push({ text: `${t.id} blocked${t.on ? ` on ${t.on}` : ''}`, isForYou: true })
+  }
+  // A snapshot stored before attempts were tracked reads as none.
+  const attemptsBefore = new Map(a.ready.map(t => [t.id, t.attempts ?? 0]))
+  for (const t of b.ready) {
+    if (t.attempts >= ATTEMPT_CAP && (attemptsBefore.get(t.id) ?? 0) < ATTEMPT_CAP) {
+      out.push({ text: `${t.id} used ${t.attempts} attempts and needs your call`, isForYou: true })
+    }
   }
   if (a.reviewRounds < 2 && b.reviewRounds >= 2) {
-    out.push('Conductor: review hit its 2-round limit; the next round escalates')
+    out.push({ text: 'review hit its 2-round limit; the next round escalates', isForYou: true })
   }
   return out
+}
+
+// Skills that take a track id as their argument; archive takes only finished ones.
+// The `conductor:` plugin prefix is optional, as the prompt accepts both.
+const TRACK_ARG = /^\/(?:conductor:)?conductor-(implement|review|handoff|archive)\s+$/
+
+// Typeahead rows for a track id typed after one of those skills. `before` is
+// the draft up to the token being typed.
+export function trackSuggestions(
+  s: ConductorSnapshot | null,
+  before: string,
+  token: string,
+): { text: string; description?: string }[] {
+  const command = TRACK_ARG.exec(before)?.[1]
+  if (!s || !command) return []
+  const ids = command === 'archive' ? s.archivable : [...s.inFlight, ...s.eligible]
+  const described = new Map<string, string | null>([
+    ...s.others.map(t => [t.trackId, t.description] as const),
+    [s.trackId ?? '', s.description],
+  ])
+  return [...new Set(ids)]
+    .filter(id => id.includes(token) && id !== token)
+    .map(id => {
+      const description = described.get(id)
+      return description ? { text: id, description } : { text: id }
+    })
 }
 
 // The engine already prefixes a plugin's status line with its name.

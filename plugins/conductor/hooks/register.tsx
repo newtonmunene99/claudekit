@@ -1,19 +1,24 @@
 // Conductor HUD: a status line, a band above the prompt, a /conductor-board
-// pane, milestone toasts, an upgrade nudge, and a guard that keeps todo
-// status changes on conductor_state.py. All data comes from that script, so
-// the HUD never parses plans itself.
+// pane, milestone rows in the transcript (with a notification when the work
+// waits on the person), track-id typeahead, an upgrade nudge, and a guard that
+// keeps todo status changes on conductor_state.py. All data comes from that
+// script, so the HUD never parses plans itself.
 
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { AgentInfo, EngineInterface, Register } from 'claude-code'
 
 import { changesStatus, denyReason, isPlanPath, rewritesConductorFile } from './guard'
-import { hasBand, inFlightPlans, milestones, pickTrack, statusText, toSnapshot } from './snapshot'
+import type { Milestone } from './snapshot'
+import { hasBand, inFlightPlans, milestones, pickTrack, statusText, toSnapshot, trackSuggestions } from './snapshot'
 
 type Json = Record<string, any>
 
 const PANE = 'conductor-board'
 const snapshot = atom({ plugin: 'conductor', key: 'snapshot' } as const, null)
 const isBandHidden = atom({ plugin: 'conductor', key: 'isBandHidden' } as const, false)
+const placed = atom({ plugin: 'conductor', key: 'placed' } as const, {})
+// Rows older than this stop drawing; the transcript keeps no record of them.
+const PLACED_KEEP = 50
 
 // The band's colours match the statusline mod's pills, so the two read as one.
 const TONE = {
@@ -35,6 +40,7 @@ const HEAD = {
   waiting: { icon: '◷', color: '#4a6fb5' },
   person: { icon: '!', color: '#c8553d' },
   others: { icon: '◆', color: ACCENT },
+  agents: { icon: '⇉', color: '#4a6fb5' },
   tracks: { icon: '≡', color: '#8a8a8a' },
 } as const
 
@@ -146,7 +152,53 @@ async function refresh($: EngineInterface, force = false): Promise<void> {
   const next = toSnapshot(tracks, plan, mtimes, otherPlans)
   await update($, snapshot, () => next)
   await syncStatus($)
-  for (const line of milestones(prev, next)) $.ui.toast(line, { timeoutMs: 6000 })
+  await announce($, milestones(prev, next))
+}
+
+// Each milestone becomes a row in the transcript, which stays in scrollback
+// where a toast would vanish. One the work waits on also goes out as a
+// notification, for a person who stepped away during a long run.
+async function announce($: EngineInterface, items: Milestone[]): Promise<void> {
+  // This runs inside the tool.call refresh: a refused row must cost that row
+  // alone, never the refresh, so each call falls back instead of throwing.
+  for (const [i, m] of items.entries()) {
+    const id = `m-${Date.now().toString(36)}-${i}`
+    try {
+      await update($, placed, rows => Object.fromEntries([...Object.entries(rows ?? {}), [id, m.text]].slice(-PLACED_KEEP)))
+      const row = await $.ui.place({ id })
+      if (!row.isPlaced) $.ui.toast(`Conductor: ${m.text}`, { timeoutMs: 6000 })
+    } catch {
+      $.ui.toast(`Conductor: ${m.text}`, { timeoutMs: 6000 })
+    }
+    if (m.isForYou) await notifyPerson($, m.text)
+  }
+}
+
+// Inside herdr the engine's notification channels (iTerm2, kitty, Ghostty)
+// never reach the person, so herdr's own command shows it. A failure costs
+// the notification only; the row already stands.
+async function notifyPerson($: EngineInterface, text: string): Promise<void> {
+  try {
+    if ((await $.env.get('HERDR_ENV')) === '1') {
+      await $.process.run(['herdr', 'notification', 'show', 'Conductor', '--body', text, '--sound', 'request'], {
+        timeoutMs: 5000,
+      })
+      return
+    }
+    await $.ui.notify(text, { title: 'Conductor' })
+  } catch {
+    // Nothing else to try: the transcript row is the record.
+  }
+}
+
+// Background agents of the main loop that are still working, for the board.
+async function liveAgents($: EngineInterface): Promise<AgentInfo[]> {
+  try {
+    const live = new Set(['pending', 'running', 'waiting'])
+    return (await $.agent.list()).filter(a => !a.parentId && live.has(a.status))
+  } catch {
+    return []
+  }
 }
 
 async function nudgeUpgrade($: EngineInterface): Promise<void> {
@@ -222,7 +274,29 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
     if (e.tool === 'Edit' || e.tool === 'Write' || e.tool === 'Bash') await refresh($)
+    // The board's agent rows read $.agent.list() while drawing, which nothing redraws.
+    if (e.tool === 'Agent') $.ui.invalidate('ui.render')
     return ran
+  })
+
+  // Track ids after /conductor:conductor-implement and the other skills that take one.
+  on('prompt.autocomplete', async ($, e, next) => {
+    const offered = await next(e)
+    const mine = trackSuggestions(await read($, snapshot), e.text.slice(0, e.start), e.token)
+    return mine.length ? { suggestions: [...offered.suggestions, ...mine] } : offered
+  })
+
+  on('ui.render', { component: 'Placed' }, async ($, e, next) => {
+    const text = e.props.plugin === 'conductor' ? (await read($, placed))?.[e.props.id] : undefined
+    if (!text) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="row" gap={1}>
+        <Text color={ACCENT}>◆</Text>
+        <Text dimColor>conductor</Text>
+        <Text wrap="wrap">{text}</Text>
+      </Box>
+    )
   })
 
   // Always answers: a hook that throws is skipped, and the engine then says no
@@ -286,14 +360,14 @@ export const register: Register = (on, options) => {
           <Box flexDirection="row" gap={1} flexWrap="wrap">
             {chip('track', TONE.purple, [
               <Text key="mark" color={e.props.isWorking ? LEVEL.ok : ACCENT} backgroundColor={TONE.purple}>{mark}</Text>,
-              <Text key="id" color={INK} backgroundColor={TONE.purple} bold>{s.trackId}</Text>,
+              <Text key="id" color={INK} backgroundColor={TONE.purple} weight="semibold">{s.trackId}</Text>,
             ])}
             {chip('progress', TONE.grey, [
               <Text key="bar" color={LEVEL.ok} backgroundColor={TONE.grey}>
                 {full}
                 <Text color={TRACK}>{empty}</Text>
               </Text>,
-              <Text key="count" color={INK} backgroundColor={TONE.grey} bold>{`${p.done}/${p.total}`}</Text>,
+              <Text key="count" color={INK} backgroundColor={TONE.grey} weight="semibold">{`${p.done}/${p.total}`}</Text>,
               ...(phaseAt >= 0
                 ? [<Text key="phase" color={INK} backgroundColor={TONE.grey} dimColor>{`│ phase ${phaseAt + 1}/${p.phases.length}`}</Text>]
                 : []),
@@ -309,7 +383,7 @@ export const register: Register = (on, options) => {
           {p.next ? (
             <Box flexDirection="row" gap={1}>
               <Text dimColor>next</Text>
-              <Text bold color={ACCENT}>{p.next.id}</Text>
+              <Text weight="semibold" color={ACCENT}>{p.next.id}</Text>
               <Text wrap="truncate-end">{p.next.content}</Text>
             </Box>
           ) : (
@@ -328,9 +402,13 @@ export const register: Register = (on, options) => {
       return <Text dimColor>No conductor/ here. Run /conductor:conductor-setup to start.</Text>
     }
     const p = s.plan
+    const agents = await liveAgents($)
+    const viewing = e.props.view?.agentId
+    // A parallel batch's agents name their todo in the task description.
+    const todoOf = (a: AgentInfo) => [...(p?.parallelBatch ?? []), ...(p?.ready ?? []).map(t => t.id)].find(id => a.description.includes(id))
     const room = Math.max(3, Math.floor(((e.viewport?.rows ?? 30) - 16) / 3))
     const header = (kind: keyof typeof HEAD, title: string) => (
-      <Text bold color={HEAD[kind].color}>
+      <Text weight="semibold" color={HEAD[kind].color}>
         {HEAD[kind].icon} {title}
       </Text>
     )
@@ -355,7 +433,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column" gap={1} width={e.props.bodyColumns}>
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1}>
-            <Text bold color={ACCENT}>{s.trackId ?? 'No track'}</Text>
+            <Text weight="semibold" color={ACCENT}>{s.trackId ?? 'No track'}</Text>
             {s.trackId && (
               <Text color={s.isInProgress ? LEVEL.ok : TRACK}>{s.isInProgress ? '● in progress' : '○ next up'}</Text>
             )}
@@ -364,7 +442,7 @@ export const register: Register = (on, options) => {
           {p && (
             <Box flexDirection="row" gap={1}>
               {bar(p.done, p.total)}
-              <Text bold>{`${p.done}/${p.total}`}</Text>
+              <Text weight="semibold">{`${p.done}/${p.total}`}</Text>
               <Text dimColor>
                 todos{p.reviewRounds ? ` · review round ${p.reviewRounds}/2` : ''}
               </Text>
@@ -377,6 +455,32 @@ export const register: Register = (on, options) => {
             {header('next', 'Next')}
             {row(p.next ? `${p.next.id}: ${p.next.content}` : (p.blockedReason ?? 'nothing ready'))}
             {p.parallelBatch.length > 0 && row(`parallel batch: ${p.parallelBatch.join(', ')}`, true)}
+          </Box>
+        )}
+
+        {(agents.length > 0 || viewing) && (
+          <Box flexDirection="column">
+            {header('agents', `Agents (${agents.length})`)}
+            {agents.slice(0, room).map(a => {
+              const todoId = todoOf(a)
+              return (
+                <Box key={`agent-${a.id}`} flexDirection="row" gap={1}>
+                  <Text wrap="truncate-end">
+                    {'  '}
+                    {todoId ? `${todoId} · ${a.description}` : a.description}
+                  </Text>
+                  <Box flexGrow={1} />
+                  {a.id !== viewing && (
+                    <Button
+                      key={`view-${a.id}`}
+                      label="View"
+                      onPress={() => $.ui.view({ agentId: a.id }).then(r => r.deny && $.ui.toast(r.deny))}
+                    />
+                  )}
+                </Box>
+              )
+            })}
+            {viewing && <Button key="view-main" label="Back to main" onPress={() => $.ui.view({})} />}
           </Box>
         )}
 

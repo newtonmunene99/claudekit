@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { Plugin } from 'claude-code/testing'
 
 import { changesStatus, isPlanPath, rewritesConductorFile } from '../hooks/guard'
-import { milestones, pickTrack, statusText, toSnapshot } from '../hooks/snapshot'
+import { milestones, pickTrack, statusText, toSnapshot, trackSuggestions } from '../hooks/snapshot'
 
 const ROOT = '/repo'
 const PLAN = 'conductor/plans/track-a.plan.md'
@@ -98,11 +98,11 @@ describe('snapshot', () => {
     }))
     // A phase whose last open todo is blocked is not done.
     const stillBlocked = toSnapshot(TRACKS, planJson({ blocked: [{ id: 'verify-p1', on: 'QA', phase: 'P1' }] }))
-    expect(milestones(before, stillBlocked)).not.toContain('Conductor: phase P1 done')
+    expect(milestones(before, stillBlocked).map(m => m.text)).not.toContain('phase P1 done')
     expect(milestones(before, after)).toEqual([
-      'Conductor: phase P1 done',
-      'Conductor: webhook blocked on upstream PR',
-      'Conductor: review hit its 2-round limit; the next round escalates',
+      { text: 'phase P1 done', isForYou: false },
+      { text: 'webhook blocked on upstream PR', isForYou: true },
+      { text: 'review hit its 2-round limit; the next round escalates', isForYou: true },
     ])
   })
 
@@ -112,7 +112,41 @@ describe('snapshot', () => {
       { ...TRACKS, tracks: [{ ...TRACKS.tracks[0], status: 'completed' }], in_progress: [], archivable: ['track-a'] },
       null,
     )
-    expect(milestones(before, after)).toContain('Conductor: track track-a complete')
+    expect(milestones(before, after)).toContainEqual({ text: 'track track-a complete', isForYou: true })
+  })
+
+  test('calls the person for a hand check and for a todo out of attempts', () => {
+    const before = toSnapshot(TRACKS, planJson({
+      ready: [{ id: 'token-expiry', content: 'x', phase: 'P2', attempts: 2 }],
+    }))
+    const after = toSnapshot(TRACKS, planJson({
+      next: { id: 'verify-p2', content: 'Hand check', phase: 'P2' },
+      ready: [
+        { id: 'verify-p2', content: 'Hand check', phase: 'P2', attempts: 0 },
+        { id: 'token-expiry', content: 'x', phase: 'P2', attempts: 3 },
+      ],
+    }))
+    expect(milestones(before, after)).toEqual([
+      { text: 'verify-p2 is ready for your hand check', isForYou: true },
+      { text: 'token-expiry used 3 attempts and needs your call', isForYou: true },
+    ])
+    // Already past the cap, and already the next todo: nothing new to say.
+    expect(milestones(after, after)).toEqual([])
+  })
+
+  test('suggests track ids after the skills that take one', () => {
+    const s = toSnapshot(TRACKS, planJson())
+    expect(trackSuggestions(s, '/conductor:conductor-implement ', 'tr')).toEqual([
+      { text: 'track-a', description: 'Auth flow' },
+      { text: 'track-b' },
+    ])
+    expect(trackSuggestions(s, '/conductor:conductor-implement ', 'b')).toEqual([{ text: 'track-b' }])
+    // The short form without the plugin prefix.
+    expect(trackSuggestions(s, '/conductor-review ', 'b')).toEqual([{ text: 'track-b' }])
+    // archive offers finished tracks only; other skills and plain text get nothing.
+    expect(trackSuggestions(s, '/conductor:conductor-archive ', 'tr')).toEqual([])
+    expect(trackSuggestions(s, '/conductor:conductor-status ', 'tr')).toEqual([])
+    expect(trackSuggestions(s, 'implement ', 'tr')).toEqual([])
   })
 })
 
@@ -312,6 +346,142 @@ describe('hud', () => {
     expect(await board.find({ type: 'Text', text: /Phases/ })).toBeDefined()
     expect(await board.find({ type: 'Text', text: /^7\/7 ✓$/ })).toBeDefined()
     expect(await board.find({ key: 'implement-track-a' })).toBeDefined()
+    await board.unmount()
+  })
+
+  test('places a milestone row and notifies when it waits on the person', async ($, on) => {
+    engineDraws(on)
+    const notified: string[] = []
+    const rows: string[] = []
+    let mtimeMs = 1
+    let plan = planJson()
+    // Outside herdr, whatever terminal runs the tests.
+    on('env.get', () => ({ value: undefined }))
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs, isLink: false } }))
+    on('process.run', ($, e) => ({
+      value: {
+        exitCode: 0,
+        stdout: JSON.stringify(e.argv.includes('tracks') ? TRACKS : plan),
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }))
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('ui.place', ($, e) => {
+      rows.push(e.id)
+      return { value: { isPlaced: true, requestId: `r-${e.id}` } }
+    })
+    on('ui.notify', ($, e) => {
+      notified.push(`${e.title}: ${e.text}`)
+      return { value: { isSent: true, channel: 'ghostty' } }
+    })
+    on('tool.call', () => ({ result: { stdout: '', stderr: '', interrupted: false } as never }))
+
+    await $.tool.call({ tool: 'Bash', tool_use_id: 't1', command: 'true' } as never)
+    expect(rows).toEqual([])
+    mtimeMs = 2
+    plan = planJson({ blocked: [{ id: 'webhook', on: 'upstream PR' }] })
+    await $.tool.call({ tool: 'Bash', tool_use_id: 't2', command: 'true' } as never)
+    expect(notified).toEqual(['Conductor: webhook blocked on upstream PR'])
+    expect(rows).toHaveLength(1)
+
+    const row = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'Placed',
+      props: { id: rows[0], plugin: 'conductor' } as never,
+    })
+    expect(await row.find({ type: 'Text', text: 'webhook blocked on upstream PR' })).toBeDefined()
+    await row.unmount()
+  })
+
+  test('inside herdr, notifies through herdr instead of the engine', async ($, on) => {
+    engineDraws(on)
+    const herdr: string[][] = []
+    let engineNotified = false
+    let mtimeMs = 1
+    let plan = planJson()
+    on('env.get', ($, e) => ({ value: e.name === 'HERDR_ENV' ? '1' : undefined }))
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs, isLink: false } }))
+    on('process.run', ($, e) => {
+      if (e.argv[0] === 'herdr') herdr.push([...e.argv])
+      return {
+        value: {
+          exitCode: 0,
+          stdout: JSON.stringify(e.argv.includes('tracks') ? TRACKS : plan),
+          stderr: '',
+          isStdoutTruncated: false,
+          isStderrTruncated: false,
+        },
+      }
+    })
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('ui.place', ($, e) => ({ value: { isPlaced: true, requestId: `r-${e.id}` } }))
+    on('ui.notify', () => {
+      engineNotified = true
+      return { value: { isSent: true, channel: 'ghostty' } }
+    })
+    on('tool.call', () => ({ result: { stdout: '', stderr: '', interrupted: false } as never }))
+
+    await $.tool.call({ tool: 'Bash', tool_use_id: 't1', command: 'true' } as never)
+    mtimeMs = 2
+    plan = planJson({ blocked: [{ id: 'webhook', on: 'upstream PR' }] })
+    await $.tool.call({ tool: 'Bash', tool_use_id: 't2', command: 'true' } as never)
+    expect(herdr).toEqual([
+      ['herdr', 'notification', 'show', 'Conductor', '--body', 'webhook blocked on upstream PR', '--sound', 'request'],
+    ])
+    expect(engineNotified).toBe(false)
+  })
+
+  test('lists live agents on the board and switches the view to one', async ($, on) => {
+    engineDraws(on)
+    const views: (string | undefined)[] = []
+    on('session.root', () => ({ value: ROOT }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', () => ({ value: { kind: 'file', size: 1, mtimeMs: 1, isLink: false } }))
+    on('process.run', ($, e) => ({
+      value: {
+        exitCode: 0,
+        stdout: JSON.stringify(e.argv.includes('tracks') ? TRACKS : planJson()),
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }))
+    on('ui.status', () => ({ value: undefined }))
+    on('ui.toast', () => ({ value: undefined }))
+    on('ui.open', () => ({ value: { isPlaced: true } as never }))
+    on('agent.list', () => ({
+      value: [
+        { id: 'ag1', description: 'Implement token-expiry', type: 'general-purpose', status: 'running' },
+        { id: 'ag2', description: 'Old search', type: 'Explore', status: 'completed' },
+      ] as never,
+    }))
+    on('ui.view', ($, e) => {
+      views.push(e.agentId)
+      return { value: {} }
+    })
+    await $.command.run({ command: 'conductor-board' } as never)
+
+    const board = await $.ui.mount({
+      plugin: 'conductor',
+      surface: 'terminal',
+      component: 'Pane',
+      requestId: 'conductor-board',
+      props: { title: 'Conductor', isFocused: false, bodyColumns: 80, placement: 'dock', view: {} } as never,
+    })
+    expect(await board.find({ type: 'Text', text: /Agents \(1\)/ })).toBeDefined()
+    expect(await board.find({ type: 'Text', text: /token-expiry · Implement token-expiry/ })).toBeDefined()
+    expect(await board.find({ key: 'view-ag2' })).toBeUndefined()
+    await board.press({ key: 'view-ag1' })
+    expect(views).toEqual(['ag1'])
     await board.unmount()
   })
 

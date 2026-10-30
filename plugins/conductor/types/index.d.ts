@@ -5,6 +5,8 @@ export type ConductorTodo = {
   id: string
   content: string
   phase: string | null
+  // Failed tries so far, as set-todo --attempts records them.
+  attempts: number
 }
 
 export type ConductorWaitingTodo = ConductorTodo & { blockedBy: string[] }
@@ -59,6 +61,8 @@ declare module 'claude-code' {
     conductor: {
       snapshot: ConductorSnapshot | null
       isBandHidden: boolean
+      // Milestone rows placed in the transcript, by row id, newest last.
+      placed: Record<string, string>
     }
   }
 }

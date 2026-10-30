@@ -80,8 +80,10 @@ On Claude Code builds with function hooks, the plugin also loads `hooks/register
 | :---- | :----------- |
 | Status line | `<track> 7/12` while the band is hidden, or the next eligible track when none is in progress |
 | Band above the prompt | Coloured chips in the statusline's palette: the track (its mark spins while a turn runs), progress bar with phase, and red/yellow/blue chips for blocked, deferred and other tracks in flight; the next todo's id and text; **Board** (`b`) and **Hide** buttons |
-| `/conductor-board` | Pane with coloured, iconed sections: overall progress bar, a bar per phase, next todo, parallel batch, waiting and blocked todos, deferred checks, every other track in progress (progress, next todo, its own **Implement**), other tracks, and buttons that fill in `/conductor:conductor-implement`, `review`, `archive` or `status` |
-| Toasts | Phase done, a todo newly blocked, review hitting its 2-round limit, track complete |
+| `/conductor-board` | Pane with coloured, iconed sections: overall progress bar, a bar per phase, next todo, parallel batch, waiting and blocked todos, deferred checks, every other track in progress (progress, next todo, its own **Implement**), live background agents (named by their todo, with **View** to open an agent's transcript and **Back to main**), other tracks, and buttons that fill in `/conductor:conductor-implement`, `review`, `archive` or `status` |
+| Milestone rows | A row in the transcript for: phase done, a todo newly blocked, a phase's hand check now next, a todo out of attempts, review hitting its 2-round limit, track complete. Rows stay in scrollback; the model never reads them |
+| Notifications | A herdr notification inside herdr; elsewhere, one through your terminal's notification channel (`preferredNotifChannel`; `terminal_bell` only rings) for every milestone that waits on you (all but phase done), for when you step away during a long run |
+| Track-id typeahead | Typing after `/conductor:conductor-implement` (or `/conductor-implement`), `review` or `handoff` suggests the tracks in progress and eligible; after `archive`, the archivable ones |
 | Upgrade nudge | At session start, a toast when `doctor` finds drift worth `/conductor:conductor-setup` |
 | Status guard | Denies Edit/Write/`sed -i`/redirects that change a todo's `status` in `conductor/plans/` or rewrite `tracks.md`, pointing at `set-todo`. New pending todos and other plan fields pass. It matches spellings, so it is a guardrail, not a boundary; it stays off when `python3` cannot run the script |
 
