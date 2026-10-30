@@ -375,6 +375,8 @@ Return exactly: "Verdict: Approve" or "Verdict: Reject" followed by numbered, fi
 Flag only what you can point to in the evidence. Do not flag pre-existing code.
 ```
 
+For the **Plan self-review** gate, add to the brief: "Do not run the plan's commands, and do not compile or type-check its snippets. Grade each todo against the detail bar in plan-authoring-guide.md, and reject function or test bodies in the plan. Apply the test-quality checks to each todo's **Test** description (the named test, its stated assertion, and a literal or sourced expected value), not to code."
+
 On **Reject**, apply **Failure Policy → Repair**. Cadence follows **Verifier** in **Working Agreements**: `per-phase` (default) runs the phase verifier and the per-todo verifier only for risky todos (public API or exported symbols, auth, security, secrets, data migrations, or a diff over ~150 lines); `per-todo` runs it for every implementation todo; `off` runs neither. Never run it for `conductor-sync-*` bookends or documentation-only diffs.
 
 ## Parallel Dispatch Protocol

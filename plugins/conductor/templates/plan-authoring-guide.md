@@ -18,6 +18,9 @@ Below the header, include:
 - **Goal** — one sentence
 - **Architecture** — 2–3 sentences
 - **File structure map** — files to create/modify with one-line responsibility each
+- **Context** — entry points and the existing patterns to copy, as `path:line` read during planning (never recalled), plus track-specific commands such as the single-test invocation. Project-wide commands stay in the Workflow's **Development Commands**.
+
+Decisions and non-goals live in the spec's **Decisions** and **Out of Scope**. Link to them; do not copy them into the plan.
 
 ## Mandatory sync todos (frontmatter)
 
@@ -142,9 +145,9 @@ When adding strict registration validation (reject empty slices, required fields
 
 ## Test design constraints
 
-Tests in the plan follow **Test Quality Rules** (`templates/test-quality.md`): literal expectations, real objects or fakes before mocks, no tautological tests.
+Tests the plan describes follow **Test Quality Rules** (`templates/test-quality.md`): literal expectations, real objects or fakes before mocks, no tautological tests.
 
-**Contract probes.** When a todo consumes an external API, CLI, or file format whose real payloads are not already captured in the repo, add a `PREREQUISITE:` probe todo before it: a read-only live capture saved as testdata. Every fixture and asserted shape in later todos comes from that capture or cites its source (proto, schema, official docs). Never write test code in the plan against a payload shape nobody has seen.
+**Contract probes.** When a todo consumes an external API, CLI, or file format whose real payloads are not already captured in the repo, add a `PREREQUISITE:` probe todo before it: a read-only live capture saved as testdata. The probe runs during implement, not during planning. Every fixture and asserted shape in later todos names that capture or cites its source (proto, schema, official docs). Never plan a test against a payload shape nobody has seen.
 
 **Registration points.** For a new package, resource, command, or module, inspect the most recent comparable addition (`git show --stat <commit>`) and give every non-source file it touched a todo: CI matrices, test harnesses, examples, docs indexes, provider registration.
 
@@ -165,27 +168,42 @@ Documentation or troubleshooting tracks that key content on diagnostic IDs MUST:
 
 ## Plan body detail (per task)
 
+A plan is guidance for the implementer, not the implementation. The implementer writes the code during `/conductor:conductor-implement`, test first. The plan's job is to settle every decision so the implementer never has to make one.
+
 For each todo, the markdown body MUST include a section with:
 
 - **Files:** `Create`, `Modify`, and `Test` paths (exact paths)
-- **Interfaces:** what this task consumes from earlier tasks and what later tasks rely on (signatures, types, function names)
-- **Micro-steps** (when workflow uses TDD), as a **numbered list** (one bounded action per step):
-  1. Write failing test
-  2. Run test — verify it fails for the expected reason
-  3. Implement minimal code
-  4. Run test — verify pass
-  5. Commit (Git Write Policy applies)
-- **Commands** with expected output where applicable
+- **Interfaces:** only when this todo creates or changes something another todo uses: the signature, type, or schema, written once as code
+- **Change:** what to add, remove, or rename, in precise prose. Name the existing pattern to copy as `path:line`, and give the reason for any non-obvious choice ("not X, because …").
+- **Test:** each test's name, the behaviour it pins, its literal expected values or their source, and why it fails before the change. A `kind: refactor` todo names the existing tests that must stay green instead.
+- **Verify:** the command to run and what passing looks like
+- **Stop if** (optional): track-specific conditions where the implementer stops and reports instead of improvising ("if Go writes the fields in a different order, stop"). The **Failure Policy** in templates/conductor-protocol.md covers the generic ones.
+
+The red, green, commit loop lives in the Workflow; do not repeat it in each todo.
+
+**Detail bar:** a section is complete when two implementers working from it would produce functionally identical code. Shorter is better once the bar holds.
+
+## Guidance, not code
+
+Code blocks in a plan carry only what prose cannot state exactly:
+
+- **Allowed:** signatures, types, schemas, and config keys (under **Interfaces**); commands; literal expected values such as an error message or a short wire string.
+- **Never:** a function body, a test body, or a whole file. Describe it under **Change** or **Test** and let the implementer write it.
+- **Captured values** do not exist yet at planning time, so never paste them. Name the source instead: "expected bytes: the `b_eap` line of `testdata/go-fixtures.txt`, from todo `capture-go-fixtures`".
+
+The planner reads code to ground the plan. It does not write, compile, or run the implementation to prove the plan works; the implement loop's red step catches a wrong plan.
+
+Scale the plan to the risk. A 20-line change gets a short plan.
 
 ## No placeholders
 
 These are plan failures — never write them:
 
 - TBD, TODO, "implement later", "fill in details"
-- "Add appropriate error handling" / "add validation" / "handle edge cases" without specifics
-- "Write tests for the above" without actual test code
-- "Similar to Task N" (repeat the code — tasks may be read out of order)
-- Steps that describe what to do without showing how (code blocks required for code steps)
+- "Add appropriate error handling" / "add validation" / "handle edge cases" without naming which errors, rules, or edges
+- "Write tests for the above" without naming each test and what it asserts
+- "Similar to Task N" without restating what differs (tasks may be read out of order)
+- "probably", "consider", or "if needed" in a **Change**: decide, or escalate it to the user
 
 ## Path verification checklist
 
@@ -218,8 +236,10 @@ These are plan failures — never write them:
 
 After drafting the complete plan, hand this checklist to a **fresh verifier** per the **Independent Verification Protocol** in templates/conductor-protocol.md (the context that drafted the plan does not grade it). Fix every rejected item inline, then re-verify; after **2** rounds escalate to the user.
 
+The verifier reads the plan and the code it cites. It does not run the plan's commands, and it does not compile or type-check the plan's snippets.
+
 1. **Spec coverage:** Each spec requirement maps to at least one todo.
-2. **Placeholder scan:** No banned patterns above.
+2. **Guidance, not code:** No banned placeholder patterns, and no function or test bodies (see **Guidance, not code**). Every implementation todo has a **Change**, **Test**, and **Verify** that meet the detail bar.
 3. **Type consistency:** Signatures and names match across tasks.
 4. **Sync bookends:** `conductor-sync-in-progress` is first; `conductor-sync-complete` is last.
 5. **Phase todos:** Every phase has a `verify-p<N>` todo whose `blocked_by` lists the phase's other todos. A plan without phases counts as one phase and gets one `verify` todo just before `conductor-sync-complete`.
@@ -229,7 +249,7 @@ After drafting the complete plan, hand this checklist to a **fresh verifier** pe
 9. **Namespace:** Single owner for shared ID registries when programme spans tracks.
 10. **Edges:** Every `blocked_by` names a real data dependency; every implementation todo declares `files`; `conductor_state.py plan` reports no `unknown_blockers`.
 11. **Green commits:** No todo is only "write failing tests" or only "implement". Each behaviour todo names the test that fails before it; each `kind: refactor` todo names the existing tests that must stay green.
-12. **Contracts:** Every external payload shape used in tests has a probe todo or a cited source. No fixture is invented.
+12. **Contracts:** Every external payload shape used in tests has a probe todo or a cited source, and every expected value names where it comes from. No fixture is invented.
 13. **Registration points:** Every CI, harness, example, or registration file touched by the last comparable addition has a todo.
 14. **Tooling:** Dependency, build, and codegen steps use the exact commands and flags recorded in **Tech Stack** and the Workflow's **Development Commands**.
 
@@ -238,7 +258,7 @@ After drafting the complete plan, hand this checklist to a **fresh verifier** pe
 Plans change during implementation: a hand check finds defects, the user adds scope, or a design turns out wrong. Keep the frontmatter and the body in step so the next session can trust both.
 
 1. **New todos** get the full shape: `id`, `content`, `status: pending`, `phase`, `files`, and `blocked_by` only for real data edges. Append them in the phase they belong to, before `conductor-sync-complete`.
-2. **New phase:** add its todos, a body section for each todo (Files, Interfaces, micro-steps), a `verify-p<N>` hand-check todo when the workflow uses phase checkpoints, and a line in the **Phases** map. Never add frontmatter todos without their body sections.
+2. **New phase:** add its todos, a body section for each todo (Files, Change, Test, Verify), a `verify-p<N>` hand-check todo when the workflow uses phase checkpoints, and a line in the **Phases** map. Never add frontmatter todos without their body sections.
 3. **Changed design:** rewrite every affected pending todo (content, files, body) in the same edit, and update the spec requirement.
 4. **Side commits** made during the track but outside any todo (a fix in a sibling repo, an unrelated bug found while testing) go in a `## Side commits` list in the plan body: SHA, repo, one line of why. Status and review then see them.
 5. **Check:** run `conductor_state.py plan <plan>` and `verify-paths <plan> --create-ok`; fix any `unknown_blockers` or missing paths before continuing.
