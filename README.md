@@ -113,7 +113,7 @@ claude plugin validate ./plugins/engineering --strict
 
 ## Relationship to upstream Conductor
 
-Claudekit is a manual port of [gemini-cli-extensions/conductor](https://github.com/gemini-cli-extensions/conductor) for Claude Code. Upstream changes require manual re-porting; `node scripts/adapt-from-cursorcade.mjs` applies the mechanical rewrites (paths, tool names, command namespacing) after copying updated files into `plugins/` — review the diff afterwards. Key differences from upstream:
+Claudekit is a manual port of [gemini-cli-extensions/conductor](https://github.com/gemini-cli-extensions/conductor) for Claude Code, and is now the only home of this Conductor. Upstream changes are re-ported by hand. Key differences from upstream:
 
 - `.claude-plugin/` manifests and marketplace instead of Gemini CLI extension config
 - Skills invoked as `/plugin:skill-name` (namespaced)
@@ -134,8 +134,7 @@ claudekit/
 │   │   └── scripts/conductor_state.py   # deterministic registry / plan / path checks
 │   └── engineering/
 └── scripts/
-    ├── validate-template.mjs
-    └── adapt-from-cursorcade.mjs
+    └── validate-template.mjs
 ```
 
 ## License
